@@ -1,0 +1,2 @@
+export const UPDATEUSER="UPDATEUSER";
+export const CHANGEEXAMS="CHANGEEXAMS";

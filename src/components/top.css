@@ -1,0 +1,647 @@
+.text-lemon {
+  color: rgb(81, 194, 37); /* Adjust the color code as needed */
+}
+.bg-lemon {
+  background-color: rgb(81, 194, 37); /* Adjust the color code as needed */
+}
+.greenborder {
+  border: 1px solid rgb(81, 194, 37);
+  margin-top: 15px;
+  width: 200px;
+}
+.transparent-red {
+  background-color: rgba(240, 162, 162, 0.555); /* Red color with 50% opacity */
+}
+.upload-button-container {
+  position: relative;
+  display: inline-block;
+}
+
+.upload-button {
+  background-color: rgb(81, 194, 37);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 5px;
+  position: relative;
+  z-index: 1; 
+}
+
+
+.upload-options {
+  display: none;
+  position: absolute;
+  top: 100%; /* Position just below the upload button */
+  left: 0; /* Align with the left edge of the upload button */
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 0.25rem; /* Rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2; /* Ensure the dropdown is above the upload button */
+  min-width: 160px; /* Set a minimum width for consistency */
+  padding: 0; /* Remove default padding */
+  flex-direction: column; /* Stack options vertically */
+  /* Ensure options stack vertically */
+}
+
+.upload-button-container:hover .upload-options {
+  display: block; /* Show options when hovered */
+}
+
+.upload-option {
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  color: #007bff; /* Bootstrap primary color */
+  font-size: 16px;
+  text-align: left;
+  background-color: white;
+}
+
+.upload-option:last-child {
+  border-bottom: none;
+}
+
+.upload-option:hover {
+  background-color: #f8f9fa; /* Bootstrap light background color */
+}
+
+/* Add space between the buttons */
+.upload-option + .upload-option {
+  margin-top: 5px;
+}
+
+.submit-button {
+  transform: translateX(-50%);
+  width: 90%;
+  border-radius: 15px; /* Adjust the value for rounded corners */
+  padding: 10px 0; /* Adjust padding for button height */
+  background-color: rgb(81, 194, 37); /* Adjust color as needed */
+  color: white;
+  border: none;
+  text-align: center;
+}
+.transparent-blue {
+  background-color: rgba(0, 0, 255, 0.473); /* Blue color with 50% opacity */
+}
+.transparent-green {
+  background-color: rgba(144, 241, 144, 0.5); /* Green color with 50% opacity */
+}
+.transparent-div {
+  padding: 20px;
+  border-radius: 5px;
+}
+.vertical-line {
+  border-left: 1px solid black; /* Adjust the color and thickness as needed */
+  height: 100px; /* Adjust the height of the vertical line */
+  display: "inline-block";
+  margin-left: 15px;
+}
+.formb {
+  display: inline-block;
+  padding: 10px;
+  border-radius: 10px;
+}
+.data {
+  width: 100%;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 1px solid black; /* Set the bottom border */
+  outline: none; /* Remove outline */
+  transition: border-bottom-color 0.3s ease;
+}
+.data:focus {
+  border-bottom-color: limegreen; /* Change bottom border color on focus */
+}
+.user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 30vh;
+  border-radius: 5px;
+  margin-top: 9rem;
+  justify-content: center;
+}
+/* CSS */
+/* Hide the default radio button */
+
+input[type="radio"] + label {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-color: white; /* Change this to your desired color */
+  border: 2px solid #ccc; /* Change this to your desired color */
+  border-radius: 50%;
+}
+
+/* Style the custom radio button when checked */
+input[type="radio"]:checked + label {
+  background-color: green !important; /* Change this to your desired color */
+  border-color: green !important; /* Change this to your desired color */
+}
+@-moz-document url-prefix() {
+  input[type="radio"] + label::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background-color: green; /* Change this to your desired color */
+    border-radius: 50%;
+    display: none;
+  }
+  .formholder {
+    position: relative;
+  }
+
+  .formholder::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px; /* Adjust the width and height of the icon */
+    height: 300px;
+    background-image: url("img/unaab.jpeg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.3; /* Adjust opacity if needed */
+  }
+  
+  input[type="radio"]:checked + label::before {
+    display: block;
+  }
+}
+.user-container {
+  display: flex;
+  align-items: center; /* Align items vertically in the center */
+  margin-bottom: 10px; /* Space between items, adjust as needed */
+}
+.description-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.description-item {
+  margin-right: 20px; /* Adjust as needed */
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 20px; /* Adjust spacing between legend items */
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+}
+.legend-label {
+  font-size: 14px; /* Adjust font size as needed */
+}
+.col-md-6 {
+  position: relative; /* Ensure the parent div is relative */
+}
+.bottom-div-container {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 10px; /* Adjust as needed for spacing from the bottom */
+}
+
+.bottom-div {
+  position: absolute;
+  bottom: 0;
+  right: 1rem;
+  width: 100%;
+  background-color: rgb(81, 194, 37); /* Adjust background color as needed */
+  color: white; /* Adjust text color as needed */
+  padding: 5px 0; /* Adjust padding as needed */
+  display: flex;
+  align-items: center; /* Align items vertically centered */
+}
+.inline-container {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.inline-container p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.small-text {
+  display: block;
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.round-image {
+  border-radius: 50%;
+  width: 40px; /* Ensure the width is equal to the height for a perfect circle */
+  height: 40px; /* Height of the image */
+  object-fit: cover; /* Ensures the image covers the area without distortion */
+  margin-right: 10px; /* Add some space between the image and the text */
+  margin-left: -15px;
+}
+.dropdown {
+  position: relative;
+  display: inline-block;
+  width: 200px;
+}
+
+.dropdown-header {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #f9f9f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdown-icon {
+  margin-left: 10px;
+  transition: transform 0.2s;
+}
+
+.dropdown-icon.open {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #fff;
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: #f1f1f1;
+}
+.radio-group {
+  display: flex;
+  align-items: center;
+}
+.input-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  margin-top: 25px;
+}
+
+.input-group label {
+  margin-right: 10px;
+}
+.otherinput {
+  margin-top: 7rem;
+}
+.radio-group label {
+  margin-right: 15px;
+}
+.full-height-container,
+.full-height-container .row {
+  height: 100vh; /* Full viewport height */
+}
+.fixed-width-button {
+  margin-top: 15px;
+  width: 180px; /* Set your desired fixed width */
+  height: 40px; /* Optional: Set a fixed height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 10px;
+  color: white; /* Text color */
+  border: 1px solid white; /* Remove border */
+  border-radius: 8px; /* Optional: Add rounded corners */
+  cursor: pointer; /* Change cursor on hover */
+  font-size: 16px; /* Set font size */
+  font-weight: light; /* Set font weight */
+}
+.fixed-width-button:hover {
+  background-color: #fdfdfd; /* Change background on hover */
+}
+.student-div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+.mt-auto {
+  margin-top: auto;
+}
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8f9fa;
+  padding: 10px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000; /* Ensure the header is always on top */
+}
+.custom-margin-top {
+  margin-top: 5rem; /* Adjust this value as needed */
+}
+
+.header-message {
+  font-size: 18px;
+  margin: 0;
+  font-weight: bolder;
+}
+
+.search-container {
+  position: relative;
+  flex-grow: 1;
+  margin: 0 15px;
+}
+.small-screen{
+  position: relative;
+  width: 70%;
+  margin: 0 15px
+}
+.other-smalls-screen{
+  display: flex;
+  align-items: center;
+  width: 25%;
+}
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: #888;
+}
+
+.header-search {
+  width: 100%;
+  padding: 5px 10px 5px 30px; /* Add padding to the left to accommodate the icon */
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.others {
+  align-items: center;
+  flex-grow: 2;
+}
+
+.header-bell {
+  font-size: 24px;
+  color: #007bff;
+  margin-right: 15px;
+  cursor: pointer;
+}
+
+.user-details {
+  margin-right: 10px;
+  display: flex;
+  flex-direction: column;
+  margin-left: 15px;
+}
+
+.user-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+.user-class {
+  margin: 0;
+  font-size: 16px;
+  color: #888;
+}
+.user-name, .user-class {
+  margin: 0; /* Remove default margin */
+  line-height: 1.2; /* Adjust line height if needed */
+  margin-left: 10px;
+}
+.header-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-left: 10px;
+}
+.teacher-card-container {
+  display: flex;
+  gap: 20px; /* Space between the cards */
+  padding: 20px; /* Optional padding for the container */
+}
+.teacher-card-container {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  overflow-x: auto; /* Enable horizontal scroll if content overflows */
+  gap: 20px; /* Space between cards */
+  padding: 20px; /* Optional padding */
+  max-width: 100%; /* Set maximum width */
+}
+
+.teacher-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+.teacher-image-small {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+.teacher-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin: 5px 0;
+}
+
+.subject-name {
+  font-size: 16px;
+  color: #666;
+  margin: 5px 0;
+}
+
+.top-left-btn,
+.top-right-btn {
+  position: absolute;
+  top: 1px;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.top-left-btn {
+  left: 10px;
+}
+
+.top-right-btn {
+  right: 10px;
+}
+
+.bell-container {
+  position: relative;
+  display: inline-block;
+}
+
+.circular-div {
+  position: absolute;
+  top: -10px; /* Adjust the position as needed */
+  right: -10px; /* Adjust the position as needed */
+  width: 24px; /* Adjust the size as needed */
+  height: 24px; /* Adjust the size as needed */
+  background-color: red; /* Adjust the color as needed */
+  border-radius: 50%;
+  border: 2px solid white; /* Optional: for a border around the circle */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px; /* Adjust the font size as needed */
+  font-weight: bold; /* Optional: for making the text bold */
+}
+
+.custom-modal-body {
+  max-height: 400px; /* Adjust the max height as needed */
+  overflow-y: auto; /* Enables vertical scrolling */
+  padding: 15px; /* Optional: add padding for better spacing */
+  border: 1px solid #ddd; /* Optional: add border for better visibility */
+}
+
+.custom-modal-body table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.custom-modal-body th,
+.custom-modal-body td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.custom-modal-body th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.card-custom {
+  width: 20%; /* Adjust the width as needed */
+  border-radius: 0.5rem;
+}
+
+.card-img-top {
+  height: 50%; /* Takes half of the card's height */
+  object-fit: cover;
+}
+
+.card-body {
+  padding: 0.5rem; /* Adjust padding for a more compact card */
+}
+
+.card-title {
+  font-size: 1.25rem; /* Adjust font size if necessary */
+}
+
+.card-year {
+  font-size: 0.875rem; /* Adjust font size for the year */
+  color: #6c757d; /* Optional: For a lighter color */
+}
+/* App.css */
+.App {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  height: 100vh;
+  padding: 20px;
+}
+
+.nav-link {
+  cursor: pointer;
+  width: 100%; 
+  background-color: red;/* Make sure the link takes full width */
+  display: block; 
+}
+
+.nav-link.active {
+  background-color: #007bff;
+  color: white !important;
+  
+}
+
+.content {
+  padding: 20px;
+}
+
+/* top.css or your relevant CSS file */
+.video-container {
+  position: relative;
+  display: inline-block;
+}
+
+video {
+  transform: scaleX(-1); /* Flip video horizontally */
+}
+
+.dropdown-menu {
+  z-index: 1000; /* Ensure dropdown menu appears above other content */
+  top: 100%; /* Position it below the toggle button */
+}
+.input-container {
+  position: relative;
+  display: inline-block;
+  margin-top: 2rem;
+}
+
+.input-description {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none; /* Allows clicking through the text to the input */
+  padding: 4px; /* Adjust padding if needed */
+}
+
+.small-input {
+  width: 30px; /* Very small width for the input */
+  margin-left: 18rem;
+  padding: 5px; /* Adjust padding to fit content */
+  text-align: center; /* Center the text inside the input */
+}
