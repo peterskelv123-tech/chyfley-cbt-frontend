@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, createContext } from 'react';
+import { useMemo, useState, useEffect, createContext } from 'react';
 import DashboardHeader from '../components/dashboardWelcome';
 import { menuItems } from '../constant';
 import { fetchExamDetails } from '../api/baseAxious';
@@ -10,7 +10,7 @@ export const AdminContext = createContext(null);
 const SidebarApp = () => {
     const queryClient = useQueryClient();
 
-    const allFetchingFunctions = { 
+    const allFetchingFunctions = {
         exams: fetchExamDetails,
         // attendance: fetchAttendance,
         // results: fetchResults
@@ -36,14 +36,13 @@ const SidebarApp = () => {
     const { setTotalPages, changePage } = usePagination(isPaginated, allpages, setAllPages);
 
     // ✅ Invalidate query for active tab
-    const invalidate = () => {
-        queryClient.invalidateQueries({
-            queryKey: [activeTab],
-        });
+    const invalidate = {
+        current: () => queryClient.invalidateQueries([activeTab, allpages[activeTab].pageNo]),
+        all: () => queryClient.invalidateQueries([activeTab]),
     };
-
     // ✅ Update total pages when active tab changes
     useEffect(() => {
+        console.log("current table data", activeTabData)
         if (activeTabData?.paginated) {
             setTotalPages(activeTab, activeTabData.totalPages);
         }
@@ -52,7 +51,7 @@ const SidebarApp = () => {
     // ✅ Context value
     const value = useMemo(() => ({
         activeTab,
-        allpages,
+        pageInfo:allpages[activeTab],
         activeTabData,
         isLoading,
         error,
@@ -72,7 +71,6 @@ const SidebarApp = () => {
     return (
         <div className="container-fluid">
             <DashboardHeader />
-
             <div className="row">
                 {/* Sidebar */}
                 <div className="col-2 bg-light vh-100">
@@ -80,23 +78,37 @@ const SidebarApp = () => {
                         {menuItems.map((item, index) => (
                             <li
                                 key={`${item.name}_${index}`}
-                                className={`nav-item mb-3 d-flex align-items-center p-2 rounded ${
-                                    activeTab === item.key ? "bg-primary text-white" : "text-dark"
-                                }`}
+                                className={`nav-item mb-3 d-flex align-items-center p-2 rounded ${activeTab === item.key ? "bg-primary text-white" : "text-dark"
+                                    }`}
                                 onClick={() => setActiveTab(item.key)}
                                 style={{ cursor: "pointer" }}
                             >
                                 <span className="me-2">{item.icon}</span>
-                                <span>{item.name}</span>
+                                <span style={{ textTransform: "capitalize" }}>{item.name}</span>
                             </li>
                         ))}
                     </ul>
                 </div>
-
                 {/* Content */}
                 <div className="col-10 p-4">
                     <AdminContext.Provider value={value}>
-                        <ActiveTabComponent />
+
+                        {isLoading && (
+                            <div className="text-center">
+                                <h4>Loading {activeTab}...</h4>
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="text-danger">
+                                <h4>Failed to load {activeTab}</h4>
+                            </div>
+                        )}
+
+                        {!isLoading && !error && (
+                            <ActiveTabComponent />
+                        )}
+
                     </AdminContext.Provider>
                 </div>
             </div>

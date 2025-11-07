@@ -32,12 +32,12 @@ export const LoginPage = () => {
       try {
     // 🔹 Call the API with className from password
     const response = await api.get(`/exams/take`, {
-      params: { className: loginDetail.password },
+      params: { className: loginDetail.password,regNo:loginDetail.username },
     });
 
     if (response.data.statusCode === 200) {
-      const { data } = response.data.data; // depends on how your ResponseService wraps output
-      console.log("Fetched Exam Data:", response.data);
+      const { data } = response.data; // depends on how your ResponseService wraps output
+      console.log("Fetched Exam Data:", response.data.data);
       dispatch(updateUser(loginDetail.username))
       dispatch(changeExams(data))
       navigation("/exam",{replace:true} )

@@ -6,6 +6,7 @@ export const updateUser=(regNo)=>{
     }
 }
 export const changeExams=(exams)=>{
+    console.log("updated exams:",exams)
     return{
         type:CHANGEEXAMS,
         payload:exams

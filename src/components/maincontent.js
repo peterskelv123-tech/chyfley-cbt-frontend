@@ -1,5 +1,5 @@
 import "./top.css";
-import avatar1 from "./img/Avatart1.jpg";
+//import avatar1 from "./img/Avatart1.jpg";
 import { Option } from "./option";
 import { CameraComponent } from "./lifefeed";
 import { Bottom } from "./subbottom";
@@ -8,6 +8,7 @@ import { useContext, useMemo, useState, useEffect } from "react";
 import { ExamContext } from "../pages/examPage";
 import { useNavigate } from "react-router-dom";
 import { submitExamAnswers } from "../api/examSubmit";
+import { socket } from "../api/socket";
 export const Main = ({
   regNo,
   userClass,
@@ -20,77 +21,6 @@ export const Main = ({
   const [timeLeft, setTimeLeft] = useState((time || 0) * 60);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const { hr, min, sec } = useMemo(() => {
-    const hr = Math.floor(timeLeft / 3600);
-    const min = Math.floor((timeLeft % 3600) / 60);
-    const sec = timeLeft % 60;
-    return { hr, min, sec };
-  }, [timeLeft]);
-  useEffect(() => {
-      if (isPaused) return; // ⏸️ freeze timer when paused
-    if (!timeLeft || isSubmitted) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit("Time expired");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, isSubmitted,isPaused]);
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden && !isSubmitted) {
-        handleSubmit("You left the exam tab");
-      }
-    };
-
-    const handleBlur = () => {
-      if (!document.hidden && !isSubmitted) {
-        handleSubmit("You switched tabs or apps");
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [isSubmitted]);
-  useEffect(() => {
-    const handleBeforeUnload = (event) => {
-      if (!isSubmitted) {
-        handleSubmit("Page reload or tab closed");
-        // Prevents browser from closing immediately
-        event.preventDefault();
-        event.returnValue = "Are you sure you want to leave? Your exam will be submitted.";
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isSubmitted]);
-
-  const handleSubmit = () => {
-    try{
-      submitExamAnswers(regNo,currentExam, answers);
-    if (window.__stopCamera) window.__stopCamera();
-    clearInterval(); // stop timer (optional)
-    navigate("/");
-    if (isSubmitted) return;
-    setIsSubmitted(true);      
-    }catch(e){
-      alert(e.message);
-      console.error("Error during exam submission:", e);
-       setIsPaused(true); 
-    }
-    //navigate("/result"); // or wherever you want to go
-  };
   const {
     question,
     examQuestions,
@@ -102,25 +32,58 @@ export const Main = ({
     table,
     currentExam
   } = useContext(ExamContext)
-  const number = examQuestions.findIndex((q) => q.id === question.id);
-  const answer = answers.find((it) => it.questionId === question.id)?.answerChoosen ?? null;
-  useEffect(() => {
-    const blockShortcuts = (e) => {
-      if (
-        e.ctrlKey ||
-        e.key === "F12" ||
-        e.key === "Tab" ||
-        (e.metaKey && e.key.toLowerCase() === "r") // Cmd+R (Mac)
-      ) {
-        e.preventDefault();
-        alert("This action is disabled during the exam.");
-      }
-    };
-    window.addEventListener("keydown", blockShortcuts);
-    return () => window.removeEventListener("keydown", blockShortcuts);
-  }, []);
+  const { hr, min, sec } = useMemo(() => {
+    const hr = Math.floor(timeLeft / 3600);
+    const min = Math.floor((timeLeft % 3600) / 60);
+    const sec = timeLeft % 60;
+    return { hr, min, sec };
+  }, [timeLeft]);
+  const handleSubmit = (reason = "Submitted") => {
+    try {
+      console.log("Submit reason:", reason);
 
-  // 🚨 Auto-submit if user leaves tab, minimizes, or switches app
+      submitExamAnswers(regNo, currentExam, answers);
+
+      if (window.__stopCamera) window.__stopCamera();
+
+      if (!isSubmitted) setIsSubmitted(true);
+
+      navigate("/");
+    } catch (e) {
+      alert(e.message);
+      console.error("Error during exam submission:", e);
+      setIsPaused(true);
+    }
+  };
+
+  // ✅ TIMER
+  useEffect(() => {
+    if (isPaused || isSubmitted) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit("Time expired");
+          return 0;
+        }
+
+        const updatedTime = prev - 1;
+
+        socket.emit("student-status", {
+          studentId: regNo,
+          examId: currentExam,
+          timeLeft: updatedTime,
+          answered: answers.length,
+        });
+
+        return updatedTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isPaused, isSubmitted, answers.length]);
+  // ✅ ANTI-TAB CHANGE (ONLY ONCE)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden && !isSubmitted) {
@@ -142,6 +105,43 @@ export const Main = ({
       window.removeEventListener("blur", handleBlur);
     };
   }, [isSubmitted]);
+  useEffect(() => {
+    socket.emit("student-join", {
+      studentId: regNo,
+      examId: currentExam,
+      timeLeft
+    });
+
+    const forceStopHandler = (data) => {
+      if (data.examId === currentExam) {
+        alert("Your exam has been stopped by the administrator.");
+        handleSubmit("Stopped by admin");
+      }
+    };
+
+    socket.on("force-stop-exam", forceStopHandler);
+
+    const blockShortcuts = (e) => {
+      if (
+        e.ctrlKey ||
+        e.key === "F12" ||
+        e.key === "Tab" ||
+        (e.metaKey && e.key.toLowerCase() === "r")
+      ) {
+        e.preventDefault();
+        alert("This action is disabled during the exam.");
+      }
+    };
+
+    window.addEventListener("keydown", blockShortcuts);
+
+    return () => {
+      window.removeEventListener("keydown", blockShortcuts);
+      socket.off("force-stop-exam", forceStopHandler);
+    };
+  }, []);
+  const number = examQuestions.findIndex((q) => q.id === question.id);
+  const answer = answers.find((it) => it.questionId === question.id)?.answerChoosen ?? null;
   return (
     <div className="container-fluid">
       <div className="row">
@@ -179,7 +179,7 @@ export const Main = ({
           </button>
           <div className="user bg-lemon text-light">
             <img
-              src={avatar1}
+              src={"/img/Avatart1.jpg"}
               alt="it should show an avatar"
               height="50%"
               width="50%"

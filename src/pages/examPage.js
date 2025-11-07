@@ -6,6 +6,7 @@ import { Welcome, Main } from "../components"
 export const ExamContext = createContext();
 export const ExamPage = () => {
   const exams = useSelector((state) => state.items.exams);
+  //console.log(exams)
   const [currentExam, setCurrentExam] = useState(exams[0]?.id ?? 0);
   const regno = useSelector((state) => state.items.regNo);
   const [question, setQuestion] = useState(null);
@@ -42,7 +43,6 @@ const {  timeAllocated, subject, className, type } = useMemo(() => {
   // Generate question table & set first question
   useEffect(() => {
     if (!examQuestions || examQuestions.length === 0) return;
-    console.log(currentExam.timeAllocated)
     const cols = 10;
     const rows = Math.ceil(examQuestions.length / cols);
     const gentable = Array.from({ length: rows }, (_, rowIndex) =>

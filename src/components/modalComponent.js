@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import  { useEffect } from "react";
 
 export const ModalComponent = ({ isOpen, onClose, title, children,isSubmitting,onSubmit }) => {
   useEffect(() => {

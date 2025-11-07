@@ -26,7 +26,7 @@ export const fetchExamDetails = async (page) => {
     const response = await api.get("/exams", {
       params: { page }
     })
-    console.log("📥 Server Response:", response.data);
+    //console.log("📥 Server Response:", response.data);
     // Always return an array (avoid undefined for React Query)
     return response.data?.data ?? [];
   } catch (e) {

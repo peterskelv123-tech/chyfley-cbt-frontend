@@ -1,8 +1,8 @@
-const SmartTable = ({ 
-  contents = [], 
-  actions = {}, 
-  tableActions = {}, 
-  metaData = {} 
+const SmartTable = ({
+  contents = [],
+  actions = {},
+  tableActions = {},
+  metaData = {}
 }) => {
   if (!contents || contents.length === 0) {
     return <p>No data available</p>;
@@ -12,7 +12,7 @@ const SmartTable = ({
   const hasActions = Object.keys(actions).length > 0;
   const hasPagination =
     metaData && metaData.totalPages && metaData.totalPages > 1;
-
+  const hasIdkey = headers.includes("id")
   return (
     <div className="card p-3 shadow-sm">
       <table className="table table-bordered align-middle">
@@ -37,7 +37,7 @@ const SmartTable = ({
                   <td key={actionIndex}>
                     <button
                       className="btn btn-sm btn-outline-primary"
-                      onClick={() => actions[actionName](rowIndex)}
+                      onClick={() => actions[actionName](!hasIdkey?rowIndex:row['id'])}
                     >
                       {actionName}
                     </button>
@@ -47,7 +47,6 @@ const SmartTable = ({
           ))}
         </tbody>
       </table>
-
       {/* Bottom section */}
       <div className="mt-3 d-flex justify-content-between align-items-center flex-wrap">
         {/* Table actions (e.g. Add new exam) */}
@@ -71,9 +70,8 @@ const SmartTable = ({
               return (
                 <button
                   key={pageNumber}
-                  className={`btn btn-sm ${
-                    isActive ? "btn-primary" : "btn-outline-primary"
-                  }`}
+                  className={`btn btn-sm ${isActive ? "btn-primary" : "btn-outline-primary"
+                    }`}
                   onClick={() => metaData.changePage(pageNumber)}
                 >
                   {pageNumber}
