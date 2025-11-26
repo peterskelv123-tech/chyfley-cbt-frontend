@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import "./navtab.css";
-export const Easynavigator = ({ num, show, action, answered, table,examQuestions }) => {
+export const Easynavigator = ({ num, show, action, answered, table, examQuestions }) => {
   return (
     <div
       className="container-fluid d-flex justify-content-center align-items-start"
@@ -13,9 +14,8 @@ export const Easynavigator = ({ num, show, action, answered, table,examQuestions
     >
       <div className="col-md-3">
         <table
-          className={`table table-bordered table-responsive ${
-            show ? "" : "d-none"
-          }`}
+          className={`table table-bordered table-responsive ${show ? "" : "d-none"
+            }`}
           style={{
             width: "60%",
             borderRadius: "18px",
@@ -29,7 +29,7 @@ export const Easynavigator = ({ num, show, action, answered, table,examQuestions
               <tr key={rowIndex}>
                 {tr.map((td, cellIndex) => {
                   const questionIndex = answered.findIndex(
-                    (item) => examQuestions[td-1].id=== item.questionId
+                    (item) => examQuestions[td - 1].id === item.questionId
                   );
                   const isCurrent = td === num + 1;
                   const isAnswered = questionIndex >= 0;
@@ -39,16 +39,15 @@ export const Easynavigator = ({ num, show, action, answered, table,examQuestions
                       onClick={action}
                       style={{
                         backgroundColor: isCurrent
-                          ? "rgb(81, 194, 37)"
+                          ? "rgb(37, 155, 194)"
                           : "white",
                         color: isCurrent
                           ? "white"
                           : isAnswered
-                          ? "rgb(81, 194, 37)"
-                          : "red",
-                        border: `1px solid ${
-                          isAnswered ? "rgb(81, 194, 37)" : "red"
-                        }`,
+                            ? "rgb(37, 155, 194)"
+                            : "red",
+                        border: `1px solid ${isAnswered ? "rgb(37, 155, 194)" : "red"
+                          }`,
                         textAlign: "center",
                         padding: "5px 10px",
                         borderRadius: "10px",

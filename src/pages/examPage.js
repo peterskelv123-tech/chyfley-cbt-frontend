@@ -1,59 +1,99 @@
 import { useState, useEffect, createContext, useMemo, } from "react";
 import { useSelector } from "react-redux";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, fetchUserProgress } from "../api/baseAxious";
 import { fetchExamQuestions } from "../api/baseAxious";
+import { createSocket } from "../api/socket";
 import { Welcome, Main } from "../components"
 export const ExamContext = createContext();
 export const ExamPage = () => {
   const exams = useSelector((state) => state.items.exams);
   //console.log(exams)
+  const [socket, setSocket] = useState(() => createSocket());
   const [currentExam, setCurrentExam] = useState(exams[0]?.id ?? 0);
   const regno = useSelector((state) => state.items.regNo);
   const [question, setQuestion] = useState(null);
-  const [answers, setAnswers] = useState([]);
   const [table, setTable] = useState([]);
   const [tabledisplay, setTabledisplay] = useState(false);
-
+  const saveProgressMutation = useMutation({
+    mutationFn: (updated) => api.post("/redis/student-progress", updated),
+    onMutate: (variables) => {
+      console.log("About to save progress:", variables);
+    },
+    onSuccess: (data, variables) => {
+      console.log("Progress saved successfully for:", variables, "Response:", data);
+    },
+    onError: (error, variables) => {
+      console.error("Failed to save progress for:", variables, "Error:", error);
+    },
+  });
+  const queryClient = useQueryClient()
   // Fetch exam questions using React Query v5
   const { data: examQuestions, isLoading, error } = useQuery({
     queryKey: ["examQuestions", currentExam],
-    queryFn: () => fetchExamQuestions(currentExam),
+    queryFn: () => fetchExamQuestions(currentExam, regno),
     enabled: !!currentExam,
   });
-const {  timeAllocated, subject, className, type } = useMemo(() => {
-  const selectedExam = exams.find((exam) => exam.id === currentExam);
+  const progressQuery = useQuery({
+    queryKey: ['progress', currentExam, regno],
+    queryFn: () => fetchUserProgress(currentExam, regno),
+    enabled: !!currentExam,
+  });
+  const {
+    answers = [],
+    currentIndex = 0,
+    questionMeta = [],
+  } = progressQuery.data || {};
+  const { timeAllocated, subject, className, type,state } = useMemo(() => {
+    const selectedExam = exams.find((exam) => exam.id === currentExam);
 
-  if (!selectedExam) {
+    if (!selectedExam) {
+      return {
+        timeAllocated: 0,
+        subject: "",
+        className: "",
+        type: "",
+        state:""
+      };
+    }
+    let timeLeft = progressQuery.data?.timeLeft ?? null;
+    console.log("time left from query:",timeLeft)
+    if (timeLeft !== null && timeLeft > selectedExam.timeAllocated*60) {
+      timeLeft = timeLeft / 60
+    }
     return {
-      timeAllocated: 0,
-      subject: "",
-      className: "",
-      type: "",
+      timeAllocated: timeLeft ?? selectedExam.timeAllocated,
+      subject: selectedExam.subject,
+      className: selectedExam.class,
+      type: selectedExam.type,
+      state: timeLeft?"seconds":"minutes"
     };
-  }
-
-  return {
-    timeAllocated: selectedExam.timeAllocated,
-    subject: selectedExam.subject,
-    className: selectedExam.class,
-    type: selectedExam.type,
-  };
-}, [currentExam, exams]);
+  }, [currentExam, exams,progressQuery.data]);
 
   // Generate question table & set first question
   useEffect(() => {
     if (!examQuestions || examQuestions.length === 0) return;
+
     const cols = 10;
-    const rows = Math.ceil(examQuestions.length / cols);
-    const gentable = Array.from({ length: rows }, (_, rowIndex) =>
-      Array.from({ length: cols }, (_, colIndex) =>
-        rowIndex * cols + colIndex + 1
-      )
-    );
+    let gentable;
+
+    if (examQuestions.length <= cols) {
+      // Less than or equal to 10 questions -> single row
+      gentable = [Array.from({ length: examQuestions.length }, (_, i) => i + 1)];
+    } else {
+      // More than 10 questions -> multiple rows
+      const rows = Math.ceil(examQuestions.length / cols);
+      gentable = Array.from({ length: rows }, (_, rowIndex) =>
+        Array.from({ length: cols }, (_, colIndex) => {
+          const number = rowIndex * cols + colIndex + 1;
+          return number <= examQuestions.length ? number : null;
+        }).filter((n) => n !== null) // remove nulls for last row
+      );
+    }
 
     setTable(gentable);
-    setQuestion(examQuestions[0]);
-  }, [examQuestions]);
+    setQuestion(examQuestions[currentIndex]);
+  }, [examQuestions, currentIndex]);
 
   const displayNavBar = () => {
     setTabledisplay(!tabledisplay);
@@ -62,59 +102,108 @@ const {  timeAllocated, subject, className, type } = useMemo(() => {
   const changeQuestion = (event) => {
     if (!examQuestions || !question) return;
 
-    const currentQuestionIndex = examQuestions.findIndex(
-      (it) => it.id === question.id
-    );
+    const text = event.target.innerText.trim();
+    let currentIdx = examQuestions.findIndex(q => q.id === question.id);
+    let newIndex = currentIdx;
 
-    const controlText = event.target.innerText.trim();
-
-    // Numeric navigation (table click)
-    if (!isNaN(controlText)) {
-      const num = parseInt(controlText);
-      if (num >= 1 && num <= examQuestions.length) {
-        setQuestion(examQuestions[num - 1]);
+    // 🔹 Numeric navigation
+    if (!isNaN(text)) {
+      const n = parseInt(text);
+      if (n >= 1 && n <= examQuestions.length) {
+        newIndex = n - 1;
       } else {
-        alert(`Question ${num} does not exist.`);
+        alert(`Question ${n} does not exist.`);
+        return;
       }
-      return;
+    }
+    // 🔹 Next / Previous
+    else {
+      const mode = text.toLowerCase();
+      if (mode === "next" && currentIdx < examQuestions.length - 1) {
+        newIndex = currentIdx + 1;
+      } else if (mode === "previous" && currentIdx > 0) {
+        newIndex = currentIdx - 1;
+      }
     }
 
-    // Next / Previous navigation
-    const direction = controlText.toLowerCase();
-    if (direction === "next" && currentQuestionIndex < examQuestions.length - 1) {
-      setQuestion(examQuestions[currentQuestionIndex + 1]);
-    } else if (direction === "previous" && currentQuestionIndex > 0) {
-      setQuestion(examQuestions[currentQuestionIndex - 1]);
-    }
-  };
+    // 🔹 Update UI first
+    setQuestion(examQuestions[newIndex]);
 
-  const answerQuestion = (answer) => {
-    if (!question) return;
-    setAnswers((prev) => {
-      const existing = prev.find((item) => item.questionId === question.id);
-      if (existing) {
-        // Replace existing answer
-        return prev.map((item) =>
-          item.questionId === question.id
-            ? {
-              ...item,
-              answerText:
-                item.answerText !== answer ? answer : null,
-            }
-            : item
-        );
-      } else {
-        // Add new answer
-        return [...prev, { questionId: question.id, answerText: answer }];
-      }
+    // 🔹 Prepare updated progress
+    const prevProgress = queryClient.getQueryData(['progress', currentExam, regno]) || {
+      answers: [],
+      currentIndex: 0,
+      questionMeta: [],
+    };
+
+    const visited = newIndex < prevProgress.questionMeta.length;
+
+    const updatedProgress = {
+      ...prevProgress,
+      currentIndex: newIndex,
+      questionMeta: visited
+        ? prevProgress.questionMeta
+        : examQuestions.slice(0, newIndex + 1),
+    };
+
+    // 🔹 Update cache
+    queryClient.setQueryData(['progress', currentExam, regno], updatedProgress);
+
+    // 🔹 Trigger mutation (autosave)
+    console.log("Saving progress:", updatedProgress); // ✅ debug log
+    saveProgressMutation.mutate({
+      studentId: regno,
+      examId: currentExam,
+      progress: updatedProgress,
     });
   };
 
+  const answerQuestion = (answer) => {
+    // Get the previous progress, or initialize if undefined
+    const prevProgress = queryClient.getQueryData(['progress', currentExam, regno]) || {
+      answers: [],
+      currentIndex: 0,
+      questionMeta: [],
+    };
+
+    // Update or insert the answer for the current question
+    const updatedAnswers = [...(prevProgress.answers ?? [])];
+    const idx = updatedAnswers.findIndex(item => item.questionId === question.id);
+
+    if (idx >= 0) {
+      updatedAnswers[idx] = {
+        ...updatedAnswers[idx],
+        answerText: updatedAnswers[idx].answerText !== answer ? answer : null,
+      };
+    } else {
+      updatedAnswers.push({
+        questionId: question.id,
+        answerText: answer,
+      });
+    }
+
+    // Prepare the updated progress
+    const updatedProgress = {
+      ...prevProgress,
+      answers: updatedAnswers,
+    };
+
+    // Update cache
+    queryClient.setQueryData(['progress', currentExam, regno], updatedProgress);
+
+    // Trigger mutation (autosave) and log for debugging
+    console.log("Saving answers progress:", updatedProgress);
+    saveProgressMutation.mutate({
+      studentId: regno,
+      examId: currentExam,
+      progress: updatedProgress,
+    });
+  };
+console.log("time sent to main:",timeAllocated);
   return (
     <div className="All">
       {isLoading && <div>Loading exam questions...</div>}
       {error && <div>Error loading exam questions: {error.message}</div>}
-
       {!isLoading && !error && question && (
         <ExamContext.Provider value={{
           currentExam,
@@ -126,7 +215,11 @@ const {  timeAllocated, subject, className, type } = useMemo(() => {
           answerQuestion,
           tabledisplay,
           displayNavBar,
-          table
+          table,
+          socket,
+          setSocket,
+          subject,
+          className
         }}  >
           <Welcome />
           <Main
@@ -135,6 +228,7 @@ const {  timeAllocated, subject, className, type } = useMemo(() => {
             Subject={subject}
             userClass={className}
             time={parseInt(timeAllocated)}
+            state={state} 
           />
         </ExamContext.Provider>
       )}

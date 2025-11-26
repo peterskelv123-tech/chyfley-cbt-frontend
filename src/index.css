@@ -1,12 +1,12 @@
 body {
-  background-image:linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.9)), url('../public/img/unaab.jpeg');
+  background-image:linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.9)), url('../public/img/School\ Logo_104519.png');
   background-size: 25%; /* Let the browser handle the sizing */
   background-repeat: no-repeat;
   background-position: center center; /* Center the background image both vertically and horizontally */
   background-attachment: fixed; /* Keep the background image fixed while scrolling */
 }
 .bg-lemon {
-  background-color: green /* Adjust the color code as needed */
+  background-color: rgb(37, 155, 194) /* Adjust the color code as needed */
 }
 .bottom-div-container {
   position: absolute;
@@ -23,7 +23,7 @@ body {
   bottom: 0;
   right: 1rem;
   width: 100%;
-  background-color: rgb(81, 194, 37); /* Adjust background color as needed */
+  background-color: rgb(37, 155, 194); /* Adjust background color as needed */
   color: white; /* Adjust text color as needed */
   padding: 5px 0; /* Adjust padding as needed */
   display: flex;

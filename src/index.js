@@ -5,16 +5,15 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { QuizData } from './question';
 import { Provider } from 'react-redux';
-import {rootReducer} from "./reducer/index";
+import { rootReducer } from "./reducer/index";
 import { createStore } from "redux";
 export const store = createStore(rootReducer)
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <Provider store={store}>
-    <App questions={QuizData}/>
-    </Provider>
-  </React.StrictMode>
+
+  <Provider store={store}>
+    <App questions={QuizData} />
+  </Provider>
 );
 
 // If you want to start measuring performance in your app, pass a function

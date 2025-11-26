@@ -1,11 +1,11 @@
 .text-lemon {
-  color: rgb(81, 194, 37); /* Adjust the color code as needed */
+  color: rgb(37, 155, 194); /* Adjust the color code as needed */
 }
 .bg-lemon {
-  background-color: rgb(81, 194, 37); /* Adjust the color code as needed */
+  background-color: rgb(37, 155, 194); /* Adjust the color code as needed */
 }
 .greenborder {
-  border: 1px solid rgb(81, 194, 37);
+  border: 1px solid rgb(37, 155, 194);
   margin-top: 15px;
   width: 200px;
 }
@@ -18,7 +18,7 @@
 }
 
 .upload-button {
-  background-color: rgb(81, 194, 37);
+  background-color: rgb(37, 155, 194);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -78,7 +78,7 @@
   width: 90%;
   border-radius: 15px; /* Adjust the value for rounded corners */
   padding: 10px 0; /* Adjust padding for button height */
-  background-color: rgb(81, 194, 37); /* Adjust color as needed */
+  background-color: rgb(37, 155, 194); /* Adjust color as needed */
   color: white;
   border: none;
   text-align: center;
@@ -114,7 +114,7 @@
   transition: border-bottom-color 0.3s ease;
 }
 .data:focus {
-  border-bottom-color: limegreen; /* Change bottom border color on focus */
+  border-bottom-color: rgb(37, 155, 194); /* Change bottom border color on focus */
 }
 .user {
   display: flex;
@@ -167,7 +167,7 @@ input[type="radio"]:checked + label {
     transform: translate(-50%, -50%);
     width: 300px; /* Adjust the width and height of the icon */
     height: 300px;
-    background-image: url("img/unaab.jpeg");
+    background-image: url("../../public/img/School\ Logo_104519.png");
     background-size: contain;
     background-repeat: no-repeat;
     opacity: 0.3; /* Adjust opacity if needed */
@@ -230,7 +230,7 @@ input[type="radio"]:checked + label {
   bottom: 0;
   right: 1rem;
   width: 100%;
-  background-color: rgb(81, 194, 37); /* Adjust background color as needed */
+  background-color: rgb(37, 155, 194); /* Adjust background color as needed */
   color: white; /* Adjust text color as needed */
   padding: 5px 0; /* Adjust padding as needed */
   display: flex;

@@ -59,7 +59,7 @@ export const LoginPage = () => {
   };
   const leftHalfStyle = {
     height: "100vh",
-    backgroundImage: `url(/img/exam5.jpg)`,
+    backgroundImage: `url(/img/BG2.jpeg)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     position: "relative",

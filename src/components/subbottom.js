@@ -14,7 +14,7 @@ export const Bottom = ({ number, action, ctrl, totalQuestions }) => {
       {number > 0 && (
         <button
           className="btn btn-light text-light previous-button"
-          style={{ backgroundColor: "rgb(81, 194, 37)" }}
+          style={{ backgroundColor: "rgb(37, 155, 194)" }}
           onClick={action}
         >
           <i className="fas fa-arrow-left"></i>
@@ -24,7 +24,7 @@ export const Bottom = ({ number, action, ctrl, totalQuestions }) => {
 
       <button
         className="btn btn-light text-light"
-        style={{ backgroundColor: "rgb(81, 194, 37)" }}
+        style={{ backgroundColor: "rgb(37, 155, 194)" }}
         onClick={ctrl}
       >
         <i className="fas fa-th-large"></i>
@@ -34,7 +34,7 @@ export const Bottom = ({ number, action, ctrl, totalQuestions }) => {
       {number < totalQuestions - 1 && (
         <button
           className="btn btn-light text-light next-button"
-          style={{ backgroundColor: "rgb(81, 194, 37)" }}
+          style={{ backgroundColor: "rgb(37, 155, 194)" }}
           onClick={action}
         >
           <span style={{ marginRight: "3px" }}>Next</span>

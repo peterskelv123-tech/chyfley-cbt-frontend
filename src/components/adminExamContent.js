@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo } from "react";
+import { useState, useContext, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { ModalComponent } from "./modalComponent";
 import { ControlledDropdownExample } from "./controlledDropDown";
@@ -12,12 +12,13 @@ export const AdminExamPageContent = () => {
     const [modalState, setModalState] = useState({ visibility: false, topic: "" });
     // ✅ Use real data from context (React Query)
     const {
-        activeTabData: exams,
         isLoading,
+        activeTabData,
         error,
         invalidate,
         pageInfo,
-        changePage
+        changePage,
+        queryClient
     } = useContext(AdminContext);
     const {
         register,
@@ -26,7 +27,7 @@ export const AdminExamPageContent = () => {
         reset,
     } = useForm();
     const { current, all } = invalidate
-
+    const exams = queryClient.getQueryData(["exams"]) ?? activeTabData;
     // ✅ Derived table data (safe)
     const viewableTableDetails = useMemo(() => {
         if (!exams) return [];
@@ -36,6 +37,12 @@ export const AdminExamPageContent = () => {
             timeAllocated: `${exam.timeAllocated} mins`,
         }));
     }, [exams]);
+    useEffect(() => {
+        if (exams?.data && !queryClient.getQueryData(["exams"])) {
+            queryClient.setQueryData(["exams"], exams);
+        }
+    }, [exams, queryClient]);
+
     const [selectedExam, setSelectedExam] = useState(null)
     const changeModalState = (topic, visibility) => {
         if (!MODALTITLES.includes(topic) && topic !== "") {
@@ -56,6 +63,12 @@ export const AdminExamPageContent = () => {
             });
 
             alert(response.data.message ?? "exam updated successfully");
+            console.log("I think this is undefined", queryClient)
+            console.log(queryClient.getQueryData(['exams']))
+            queryClient.setQueryData(["exams"], (old) => ({
+                ...old,
+                data: old.data.map((exam) => (exam.id !== examId ? exam : { ...exam, status: !examDetail.status }))
+            }));
             exams.paginated === false ? all() : current();
         } catch (err) {
             console.log(err);
@@ -70,7 +83,14 @@ export const AdminExamPageContent = () => {
                 const response = await api.delete('/exams', {
                     params: { examId: selectedExam }
                 });
+
                 alert(response.data.message ?? "exam deleted successfully")
+                if (response.data.statusCode === 200) {
+                    queryClient.setQueryData(["exams"], (old) => ({
+                        ...old,
+                        data: old.data.filter((exam) => exam.id !== selectedExam)
+                    }));
+                }
                 exams.paginated === false ? all() : current(); // ✅ Refetch fresh server data
                 setSelectedExam(null)
             } catch (err) {
@@ -94,6 +114,10 @@ export const AdminExamPageContent = () => {
             await handlePostForm(data);
             reset();
             changeModalState("", false);
+            queryClient.setQueryData(["exams"], (old) => ({
+                ...old,
+                data: [...old.data, data]
+            }));
             all(); // ✅ refetch new list
         } catch (error) {
             console.error("Error submitting exam:", error);
@@ -129,8 +153,8 @@ export const AdminExamPageContent = () => {
                             {...register("session", { required: "Session is required" })}
                             placeholder="e.g. 2024/2025"
                         />
-                        {errors.session && <div className="invalid-feedback">{errors.session.message}</div>}
                     </div>
+                    {errors.session && <div className="invalid-feedback">{errors.session.message}</div>}
                     <ControlledDropdownExample
                         title="Term"
                         name="term"
@@ -211,10 +235,11 @@ export const AdminExamPageContent = () => {
                     <SmartTable
                         contents={viewableTableDetails}
                         actions={rowActions}
+                        hide={['id']}
                         tableActions={{ "Add to exams": () => changeModalState(MODALTITLES[0], true) }}
-                        metaData={exams.paginated === false ? undefined : {
+                        metaData={exams?.paginated === false ? undefined : {
                             changePage,
-                            totalPage: pageInfo.totalPage,
+                            totalPages: pageInfo.totalPages,
                             currentPage: pageInfo.pageNo
                         }}
                     />

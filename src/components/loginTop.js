@@ -8,7 +8,7 @@ export const Top = ({content}) => {
         height: "5vh",
         width: "20%",
         textAlign: "center",
-        color: " rgb(81, 194, 37)",
+        color: " rgb(37, 155, 194)",
         fontWeight: "bolder",
       }}
     >

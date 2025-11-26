@@ -23,12 +23,18 @@ export const CameraComponent = () => {
 
     // ✅ stop camera function (used both on cleanup & externally)
     const stopCamera = () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        console.log("🎥 Camera stopped");
-      }
-    };
+  if (streamRef.current) {
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    console.log("🎥 Camera tracks stopped");
+  }
+
+  if (videoRef.current) {
+    videoRef.current.srcObject = null; // ✅ IMPORTANT
+  }
+
+  streamRef.current = null;
+};
+
 
     // ✅ make stop function globally accessible
     window.__stopCamera = stopCamera;

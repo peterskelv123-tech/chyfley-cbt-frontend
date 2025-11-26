@@ -4,21 +4,23 @@ import { Option } from "./option";
 import { CameraComponent } from "./lifefeed";
 import { Bottom } from "./subbottom";
 import { Easynavigator } from "./Navtab";
-import { useContext, useMemo, useState, useEffect } from "react";
+import { useContext, useMemo, useState, useRef, useEffect } from "react";
+import { useExamLifecycle } from "../customHookes/useExamLifeCycle";
 import { ExamContext } from "../pages/examPage";
 import { useNavigate } from "react-router-dom";
 import { submitExamAnswers } from "../api/examSubmit";
-import { socket } from "../api/socket";
+import { HARD_KILL_CAMERA } from "../constant";
 export const Main = ({
   regNo,
   userClass,
   Exam,
   Subject,
-  time
+  time,
+  state
 }) => {
   //const answer =answers.find((it) => it.questionId === question.id)?.answerChoosen ?? null;
   const navigate = useNavigate();
-  const [timeLeft, setTimeLeft] = useState((time || 0) * 60);
+  const [timeLeft, setTimeLeft] = useState(state==="minutes"?(time || 0) * 60:time);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const {
@@ -30,118 +32,115 @@ export const Main = ({
     tabledisplay,
     displayNavBar,
     table,
-    currentExam
-  } = useContext(ExamContext)
+    currentExam,
+    socket,
+    setSocket,
+    subject,
+    className
+  } = useContext(ExamContext);
+
+  // ----------------------------------------------
+  // Timer calculation
+  // ----------------------------------------------
   const { hr, min, sec } = useMemo(() => {
     const hr = Math.floor(timeLeft / 3600);
     const min = Math.floor((timeLeft % 3600) / 60);
     const sec = timeLeft % 60;
     return { hr, min, sec };
   }, [timeLeft]);
-  const handleSubmit = (reason = "Submitted") => {
+
+  // ----------------------------------------------
+  // Track the latest answers using a ref
+  // ----------------------------------------------
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers; // always up-to-date
+  }, [answers]);
+
+  // ----------------------------------------------
+  // Current question index & answer
+  // ----------------------------------------------
+  const number = examQuestions.findIndex((q) => q.id === question.id);
+  const answer = useMemo(() => {
+    return answersRef.current.find(it => it.questionId === question.id)?.answerText ?? null;
+  }, [question.id]);
+
+  // ----------------------------------------------
+  // CAMERA CLEANUP & SUBMISSION
+  // ----------------------------------------------
+  const submitLock = useRef(false);
+  const handleSubmitRef = useRef();
+
+  const handleSubmit = async (reason = "Submitted") => {
+    if (submitLock.current) return;
+    submitLock.current = true;
+
     try {
-      console.log("Submit reason:", reason);
+      console.log("Submitting because:", reason);
+      setIsSubmitted(true);
 
-      submitExamAnswers(regNo, currentExam, answers);
+      // Use answersRef.current to get latest answers
+      await submitExamAnswers(regNo, currentExam, answersRef.current);
 
-      if (window.__stopCamera) window.__stopCamera();
+      let ackReceived = false;
 
-      if (!isSubmitted) setIsSubmitted(true);
+      // Notify server and leave
+      socket.emit(
+        "student-leave",
+        { studentId: regNo, examId: currentExam,timeLeft: timeLeft },
+        (ack) => {
+          console.log("LEAVE ACK:", ack);
+          ackReceived = true;
+          try {
+            socket.close();
+            setSocket(null);
+            HARD_KILL_CAMERA();
+          } catch { }
 
-      navigate("/");
-    } catch (e) {
-      alert(e.message);
-      console.error("Error during exam submission:", e);
+          setTimeout(() => navigate("/"), 120);
+        }
+      );
+
+      // Fallback if server doesn't ack within 600ms
+      setTimeout(() => {
+        if (!ackReceived) {
+          console.warn("No ack, fallback disconnect");
+          try { socket.close(); } catch { }
+          setTimeout(() => navigate("/", { replace: true }), 150);
+        }
+      }, 600);
+
+    } catch (err) {
+      submitLock.current = false;
+      console.error(err);
+      alert(err.message || "Error submitting exam");
       setIsPaused(true);
     }
   };
 
-  // ✅ TIMER
-  useEffect(() => {
-    if (isPaused || isSubmitted) return;
+  // assign handleSubmit to ref
+  handleSubmitRef.current = handleSubmit;
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit("Time expired");
-          return 0;
-        }
+  // ----------------------------------------------
+  // Call your hook
+  // ----------------------------------------------
+  useExamLifecycle({
+    isPaused,
+    isSubmitted,
+    timeLeft,
+    setTimeLeft,
+    handleSubmitRef, // pass ref
+    socket,
+    regNo,
+    currentExam,
+    subject,
+    className,
+    answersRef,       // pass ref instead of raw answers
+  });
 
-        const updatedTime = prev - 1;
-
-        socket.emit("student-status", {
-          studentId: regNo,
-          examId: currentExam,
-          timeLeft: updatedTime,
-          answered: answers.length,
-        });
-
-        return updatedTime;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isPaused, isSubmitted, answers.length]);
-  // ✅ ANTI-TAB CHANGE (ONLY ONCE)
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden && !isSubmitted) {
-        handleSubmit("You left the exam tab");
-      }
-    };
-
-    const handleBlur = () => {
-      if (!document.hidden && !isSubmitted) {
-        handleSubmit("You switched tabs or apps");
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
-    };
-  }, [isSubmitted]);
-  useEffect(() => {
-    socket.emit("student-join", {
-      studentId: regNo,
-      examId: currentExam,
-      timeLeft
-    });
-
-    const forceStopHandler = (data) => {
-      if (data.examId === currentExam) {
-        alert("Your exam has been stopped by the administrator.");
-        handleSubmit("Stopped by admin");
-      }
-    };
-
-    socket.on("force-stop-exam", forceStopHandler);
-
-    const blockShortcuts = (e) => {
-      if (
-        e.ctrlKey ||
-        e.key === "F12" ||
-        e.key === "Tab" ||
-        (e.metaKey && e.key.toLowerCase() === "r")
-      ) {
-        e.preventDefault();
-        alert("This action is disabled during the exam.");
-      }
-    };
-
-    window.addEventListener("keydown", blockShortcuts);
-
-    return () => {
-      window.removeEventListener("keydown", blockShortcuts);
-      socket.off("force-stop-exam", forceStopHandler);
-    };
-  }, []);
-  const number = examQuestions.findIndex((q) => q.id === question.id);
-  const answer = answers.find((it) => it.questionId === question.id)?.answerChoosen ?? null;
+  //----------------------------------------------
+  // FINAL SUBMIT HANDLER
+  //----------------------------------------------
   return (
     <div className="container-fluid">
       <div className="row">
@@ -206,7 +205,7 @@ export const Main = ({
             className="container"
             style={{
               height: "80vh",
-              border: "0.5px solid rgb(81, 194, 37)",
+              border: "0.5px solid rgb(37, 155, 194)",
               borderRadius: "8px",
             }}
           >
@@ -216,7 +215,7 @@ export const Main = ({
                   className="col-md-8"
                   style={{
                     height: "80vh",
-                    borderRight: "1px solid rgb(81, 194, 37)",
+                    borderRight: "1px solid rgb(37, 155, 194)",
                     position: "relative", // Ensure proper positioning of the Bottom component
                   }}
                 >
@@ -229,17 +228,18 @@ export const Main = ({
                   <Option
                     options={question.options}
                     no={number}
-                    save={answerQuestion}
-                    answer={answer}
+                    save={(option) => answerQuestion(option)}
+                    answer={answersRef.current.find(it => it.questionId === question.id)?.answerText ?? null}
                   />
                   <Easynavigator
                     num={number}
                     show={tabledisplay}
-                    answered={answers}
+                    answered={answersRef.current}
                     action={changeQuestion}
                     table={table}
                     examQuestions={examQuestions}
                   />
+
                   {/* Bottom component */}
                   <Bottom
                     number={number}
@@ -251,7 +251,7 @@ export const Main = ({
                 <div className="col-md-4 d-flex flex-column align-items-center justify-content-start">
                   {/* Camera at the top */}
                   <div className="mt-3 mb-2">
-                    <CameraComponent />
+                    {!isSubmitted && <CameraComponent />}
                   </div>
 
                   {/* Spacer pushes the button down */}
@@ -261,16 +261,14 @@ export const Main = ({
                   <button
                     className="btn btn-success mb-4"
                     style={{
-                      backgroundColor: "rgb(81, 194, 37)",
-                      borderColor: "rgb(81, 194, 37)",
+                      backgroundColor: "rgb(37, 155, 194)",
+                      borderColor: "rgb(37, 155, 194)",
                       fontWeight: "bold",
                       color: "white",
                       width: "150px",
                       borderRadius: "8px",
                     }}
-                    onClick={() => {
-                      handleSubmit();
-                    }}
+                    onClick={() => handleSubmitRef.current?.()}
                   >
                     Submit
                   </button>

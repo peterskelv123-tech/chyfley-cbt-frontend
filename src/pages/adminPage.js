@@ -1,119 +1,219 @@
-import { useMemo, useState, useEffect, createContext } from 'react';
+import { useMemo, useState, useEffect, createContext, useRef, useCallback } from 'react';
 import DashboardHeader from '../components/dashboardWelcome';
 import { menuItems } from '../constant';
-import { fetchExamDetails } from '../api/baseAxious';
+import { fetchExamDetails, fetchAttendance, fetchResults } from '../api/baseAxious';
 import { usePagination } from '../customHookes/usePaginated';
 import { useExamTabs } from '../customHookes/useExamtab';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { AdminExamPageContent } from '../components/adminExamContent';
+import { createSocket } from '../api/socket';
+import { api } from '../api/baseAxious';
+import { AdminAttendancePage } from '../components/adminAttendancePageContent';
+import { ResultPage } from '../components/adminResultPage';
+import SmartTable from '../components/table';
 export const AdminContext = createContext(null);
-const SidebarApp = () => {
-    const queryClient = useQueryClient();
+export const SidebarApp = () => {
+  const queryClient = useQueryClient();
+  const socketRef = useRef(null);
+  const deleteExamStatus = useMutation({
+    mutationFn: (resultId) => api.delete("/results", { params: { resultId } }),
+    onMutate: (variables) => {
+      console.log("deleting student result:", variables);
+    },
+    onSuccess: () => {
+      alert("Result deleted successfully");
+    },
+    onError: (error, variables) => {
+      alert("Failed to delete result:", error);
+      console.error("Failed to delete result for:", variables, "Error:", error);
+    },
+  });
+  const [activeTab, setActiveTab] = useState("exams");
+  const [allpages, setAllPages] = useState({
+    exams: { pageNo: 1, totalPages: null },
+    attendance: { pageNo: 1, totalPages: null },
+    results: { pageNo: 1, totalPages: null },
+  });
+  const [resultDetails, setResultDetails] = useState({ className: "", subject: "", examType: "" })
+  // Fetching functions
+  const allFetchingFunctions = {
+    exams: fetchExamDetails,
+    attendance: () => queryClient.getQueryData(["attendance"]) || [],
+    results: fetchResults
+  };
+  // Initialize / cleanup socket only when attendance tab is active
+  const updateResultDetail = (key, value) => {
+    setResultDetails((prev) => { return { ...prev, [key]: value } })
+  }
+  useEffect(() => {
+    if (activeTab !== "attendance") return;
+    if (socketRef.current) return;
 
-    const allFetchingFunctions = {
-        exams: fetchExamDetails,
-        // attendance: fetchAttendance,
-        // results: fetchResults
-    };
+    const s = createSocket();
+    socketRef.current = s;
 
-    const [activeTab, setActiveTab] = useState('exams');
-
-    const [allpages, setAllPages] = useState({
-        exams: { pageNo: 1, totalPages: null },
-        attendances: { pageNo: 1, totalPages: null },
-        results: { pageNo: 1, totalPages: null },
+    s.on("connect", () => {
+      console.log("✅ Attendance socket connected:", s.id);
     });
 
-    // ✅ Fetch active tab data
-    const { data: activeTabData, isLoading, error } = useExamTabs(
-        activeTab,
-        allpages,
-        allFetchingFunctions
-    );
-
-    // ✅ Pagination utils
-    const isPaginated = !!activeTabData?.paginated;
-    const { setTotalPages, changePage } = usePagination(isPaginated, allpages, setAllPages);
-
-    // ✅ Invalidate query for active tab
-    const invalidate = {
-        current: () => queryClient.invalidateQueries([activeTab, allpages[activeTab].pageNo]),
-        all: () => queryClient.invalidateQueries([activeTab]),
-    };
-    // ✅ Update total pages when active tab changes
-    useEffect(() => {
-        console.log("current table data", activeTabData)
-        if (activeTabData?.paginated) {
-            setTotalPages(activeTab, activeTabData.totalPages);
-        }
-    }, [activeTab, activeTabData]);
-
-    // ✅ Context value
-    const value = useMemo(() => ({
-        activeTab,
-        pageInfo:allpages[activeTab],
-        activeTabData,
-        isLoading,
-        error,
-        invalidate,
-        changePage,
-    }), [activeTab, allpages, activeTabData, isLoading, error, changePage]);
-
-    // ✅ Component mapping instead of switch
-    const TAB_COMPONENTS = {
-        exams: AdminExamPageContent,
-        attendance: () => <div>Attendance content goes here</div>,
-        results: () => <div>Results content goes here</div>,
+    const handleAttendanceUpdate = (data) => {
+      console.log("Attendance update:", data);
+      queryClient.setQueryData(["attendance"], data);
     };
 
-    const ActiveTabComponent = TAB_COMPONENTS[activeTab];
+    s.on("attendance-update", handleAttendanceUpdate);
 
-    return (
-        <div className="container-fluid">
-            <DashboardHeader />
-            <div className="row">
-                {/* Sidebar */}
-                <div className="col-2 bg-light vh-100">
-                    <ul className="nav flex-column p-3">
-                        {menuItems.map((item, index) => (
-                            <li
-                                key={`${item.name}_${index}`}
-                                className={`nav-item mb-3 d-flex align-items-center p-2 rounded ${activeTab === item.key ? "bg-primary text-white" : "text-dark"
-                                    }`}
-                                onClick={() => setActiveTab(item.key)}
-                                style={{ cursor: "pointer" }}
-                            >
-                                <span className="me-2">{item.icon}</span>
-                                <span style={{ textTransform: "capitalize" }}>{item.name}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                {/* Content */}
-                <div className="col-10 p-4">
-                    <AdminContext.Provider value={value}>
+    // Optional: fetch initial snapshot
+    s.emit("admin-join");
 
-                        {isLoading && (
-                            <div className="text-center">
-                                <h4>Loading {activeTab}...</h4>
-                            </div>
-                        )}
+    return () => {
+      s.off("attendance-update", handleAttendanceUpdate);
+      s.disconnect();
+      socketRef.current = null;
+    };
+  }, [activeTab, queryClient]);
+  const { data: activeTabData, isLoading, error } = useExamTabs(
+    activeTab,
+    allpages,
+    allFetchingFunctions,
+    activeTab === "results" ? Object.values(resultDetails) : undefined
+  );
 
-                        {error && (
-                            <div className="text-danger">
-                                <h4>Failed to load {activeTab}</h4>
-                            </div>
-                        )}
+  const isPaginated = activeTabData?.paginated;
+  const { setTotalPages, changePage } = usePagination(
+    !!isPaginated,
+    allpages,
+    setAllPages
+  );
 
-                        {!isLoading && !error && (
-                            <ActiveTabComponent />
-                        )}
+  const invalidate = {
+    current: () =>
+      queryClient.invalidateQueries({
+        queryKey: [activeTab, allpages[activeTab].pageNo],
+      }),
+    all: () =>
+      queryClient.invalidateQueries({
+        queryKey: [activeTab],
+      }),
+  };
 
-                    </AdminContext.Provider>
-                </div>
-            </div>
+  useEffect(() => {
+    if (activeTabData?.paginated) {
+      setTotalPages(activeTab, activeTabData.totalPages);
+    }
+  }, [activeTab, activeTabData, setTotalPages]);
+  const value = useMemo(
+    () => ({
+      activeTab,
+      pageInfo: allpages[activeTab],
+      activeTabData,
+      isLoading,
+      error,
+      invalidate,
+      resultDetails,
+      updateResultDetail,
+      changePage: (page) => {
+        changePage(activeTab, page)
+        queryClient.setQueryData([activeTab], null);
+      },
+      socket: socketRef.current,
+      queryClient,
+    }),
+    [
+      activeTab,
+      allpages,
+      activeTabData,
+      isLoading,
+      error,
+      resultDetails,
+      changePage,
+      socketRef.current,
+      queryClient,
+    ]
+  );
+  const helpRetakeExam = useCallback((regNo) => {
+    if (!regNo && !Object.values(resultDetails).includes("")) return;
+    try {
+      deleteExamStatus.mutate(regNo);
+      queryClient.setQueryData(['results', ...Object.values(resultDetails)], (oldData) => {
+        if (!oldData || !oldData.contents) return oldData;
+        const updatedContents = oldData.contents.filter(item => item.regNo !== regNo);
+        return { ...oldData, contents: updatedContents };
+      });
+      console.log(queryClient.getQueryData(['results', ...Object.values(resultDetails)]));
+    } catch (e) {
+      console.error("Error during retake process:", e);
+    }
+    // Implement retake logic here
+  }, [resultDetails, deleteExamStatus, queryClient]);
+
+  const TAB_COMPONENTS = {
+    exams: AdminExamPageContent,
+    attendance: AdminAttendancePage,
+    results: () => {
+      // will contain the result of the fetch result tab
+      const showResults = !Object.values(resultDetails).includes("");
+      return (
+        <>{!showResults
+          && <div>Results content goes here</div>}
+          {showResults
+            && <SmartTable
+              actions={{ "allow retake": helpRetakeExam }}
+              contents={queryClient.getQueryData(["results", ...Object.values(resultDetails)])?.contents ?? activeTabData}
+              hide={['id', 'examId']}
+            />}
+        </>);
+    },
+  };
+
+  const ActiveTabComponent = TAB_COMPONENTS[activeTab];
+
+  return (
+    <div className="container-fluid">
+      <DashboardHeader />
+      <div className="row">
+        <div className="col-2 bg-light vh-100">
+          <ul className="nav flex-column p-3">
+            {menuItems.map((item, index) => (
+              <li
+                key={`${item.name}_${index}`}
+                className={`nav-item mb-3 d-flex align-items-center p-2 rounded ${activeTab === item.key ? "bg-primary text-white" : "text-dark"
+                  }`}
+                onClick={() => setActiveTab(item.key)}
+                style={{ cursor: "pointer" }}
+              >
+                <span className="me-2">{item.icon}</span>
+                <span style={{ textTransform: "capitalize" }}>{item.name}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-    );
+        <div className="col-10 p-4">
+          <AdminContext.Provider value={value}>
+            {isLoading && (activeTab !== "results") && (
+              <div className="text-center">
+                <h4>Loading {activeTab}...</h4>
+              </div>
+            )}
+            {error && (!Object.values(resultDetails).includes("")) && (
+              <div className="text-danger">
+                <h4>Failed to load {activeTab}</h4>
+              </div>
+            )}
+            {activeTab === "results" && (
+              <>
+                <ResultPage />
+                {!isLoading && !error && <ActiveTabComponent />}
+              </>
+            )}
+            {activeTab !== "results" && (!isLoading || activeTab === "attendance") && !error && (
+              <ActiveTabComponent />
+            )}
+          </AdminContext.Provider>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default SidebarApp;

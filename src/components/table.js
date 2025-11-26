@@ -2,24 +2,40 @@ const SmartTable = ({
   contents = [],
   actions = {},
   tableActions = {},
-  metaData = {}
+  metaData = {},
+  actionParams,
+  hide = []
 }) => {
   if (!contents || contents.length === 0) {
-    return <p>No data available</p>;
+    return <>
+      <p>No data available</p>
+      {tableActions && <div className="d-flex gap-2">
+        {Object.keys(tableActions).map((btnName, index) => (
+          <button
+            key={index}
+            className="btn btn-primary btn-sm"
+            onClick={tableActions[btnName]}
+          >
+            {btnName}
+          </button>
+        ))}
+      </div>}
+    </>;
   }
 
   const headers = Object.keys(contents[0]);
   const hasActions = Object.keys(actions).length > 0;
   const hasPagination =
     metaData && metaData.totalPages && metaData.totalPages > 1;
-  const hasIdkey = headers.includes("id")
+  const hasIdkey = !actionParams ? headers.includes("id") : headers.includes(actionParams)
+  const keyForAction = actionParams || "id";
   return (
     <div className="card p-3 shadow-sm">
       <table className="table table-bordered align-middle">
         <thead className="table-light">
           <tr>
             {headers.map((header, index) => (
-              <th key={index}>{header.toUpperCase()}</th>
+              !hide.includes(header) && <th key={index}>{header.toUpperCase()}</th>
             ))}
             {hasActions && (
               <th colSpan={Object.keys(actions).length}>Actions</th>
@@ -30,14 +46,14 @@ const SmartTable = ({
           {contents.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {headers.map((header, i) => (
-                <td key={i}>{String(row[header]).toUpperCase()}</td>
+                !hide.includes(header) && <td key={i}>{String(row[header]).toUpperCase()}</td>
               ))}
               {hasActions &&
                 Object.keys(actions).map((actionName, actionIndex) => (
                   <td key={actionIndex}>
                     <button
                       className="btn btn-sm btn-outline-primary"
-                      onClick={() => actions[actionName](!hasIdkey?rowIndex:row['id'])}
+                      onClick={() => actions[actionName](!hasIdkey ? rowIndex : row[keyForAction])}
                     >
                       {actionName}
                     </button>
@@ -72,7 +88,9 @@ const SmartTable = ({
                   key={pageNumber}
                   className={`btn btn-sm ${isActive ? "btn-primary" : "btn-outline-primary"
                     }`}
-                  onClick={() => metaData.changePage(pageNumber)}
+                  onClick={() => {
+                    metaData.changePage(pageNumber)
+                  }}
                 >
                   {pageNumber}
                 </button>
