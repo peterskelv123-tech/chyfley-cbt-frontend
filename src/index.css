@@ -5,6 +5,9 @@ body {
   background-position: center center; /* Center the background image both vertically and horizontally */
   background-attachment: fixed; /* Keep the background image fixed while scrolling */
 }
+.text-lemon {
+  color: rgb(37, 155, 194); /* Adjust the color code as needed */
+}
 .bg-lemon {
   background-color: rgb(37, 155, 194) /* Adjust the color code as needed */
 }

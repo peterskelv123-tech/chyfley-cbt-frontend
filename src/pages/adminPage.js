@@ -1,20 +1,54 @@
 import { useMemo, useState, useEffect, createContext, useRef, useCallback } from 'react';
 import DashboardHeader from '../components/dashboardWelcome';
-import { menuItems } from '../constant';
-import { fetchExamDetails, fetchAttendance, fetchResults } from '../api/baseAxious';
+import { ALL_EXAM_FILTERS, menuItems } from '../constant';
+import { fetchExamDetails, fetchResults, fetchExamDetailFilters, downloadResult } from '../api/baseAxious';
 import { usePagination } from '../customHookes/usePaginated';
 import { useExamTabs } from '../customHookes/useExamtab';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { AdminExamPageContent } from '../components/adminExamContent';
 import { createSocket } from '../api/socket';
 import { api } from '../api/baseAxious';
 import { AdminAttendancePage } from '../components/adminAttendancePageContent';
 import { ResultPage } from '../components/adminResultPage';
 import SmartTable from '../components/table';
+
 export const AdminContext = createContext(null);
 export const SidebarApp = () => {
   const queryClient = useQueryClient();
   const socketRef = useRef(null);
+  const {
+    data: allSessions = [],
+    isLoading: sessionsLoading,
+    error: sessionError,
+  } = useQuery({
+    queryKey: ["session"],
+    queryFn: () => fetchExamDetailFilters(ALL_EXAM_FILTERS[2]),
+  });
+  const {
+    data: allTerms = [],
+    isLoading: termsLoading,
+    error: termsError,
+  } = useQuery({
+    queryKey: ["term"],
+    queryFn: () => fetchExamDetailFilters(ALL_EXAM_FILTERS[1]),
+  });
+  const {
+    data: allExamTypes = [],
+    isLoading: examTypesLoading,
+    error: examTypesError,
+  } = useQuery({
+    queryKey: ["exam-type"],
+    queryFn: () => fetchExamDetailFilters(ALL_EXAM_FILTERS[0]),
+  });
+  useEffect(() => {
+    const handleUnload = () => {
+      navigator.sendBeacon("/exams/cleanup", new Blob([JSON.stringify({})], { type: 'application/json' }));
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, []);
   const deleteExamStatus = useMutation({
     mutationFn: (resultId) => api.delete("/results", { params: { resultId } }),
     onMutate: (variables) => {
@@ -30,17 +64,37 @@ export const SidebarApp = () => {
   });
   const [activeTab, setActiveTab] = useState("exams");
   const [allpages, setAllPages] = useState({
-    exams: { pageNo: 1, totalPages: null },
+    exams: { pageNo: 1, totalPages: null, searchKey: "", otherFilters: {} },
     attendance: { pageNo: 1, totalPages: null },
     results: { pageNo: 1, totalPages: null },
   });
-  const [resultDetails, setResultDetails] = useState({ className: "", subject: "", examType: "" })
+  useEffect(() => {
+    const otherFilParam = {}
+    ALL_EXAM_FILTERS.forEach(filterKey => {
+      otherFilParam[filterKey] = ""
+    })
+    setAllPages(prev => ({ ...prev, exams: { ...prev.exams, otherFilters: otherFilParam } }))
+  }, [])
+  const [resultDetails, setResultDetails] = useState({ className: "", subject: "", examType: "", term: "", session: "" })
   // Fetching functions
   const allFetchingFunctions = {
     exams: fetchExamDetails,
     attendance: () => queryClient.getQueryData(["attendance"]) || [],
     results: fetchResults
   };
+  const updateExamdetailsOtherFilter = (filterKey, value) => {
+    console.log("Updating exam details filter:", filterKey, "to", value);
+    setAllPages(prev => ({
+      ...prev,
+      exams: {
+        ...prev.exams,
+        otherFilters: {
+          ...prev.exams.otherFilters,
+          [filterKey]: value
+        }
+      }
+    }))
+  }
   // Initialize / cleanup socket only when attendance tab is active
   const updateResultDetail = (key, value) => {
     setResultDetails((prev) => { return { ...prev, [key]: value } })
@@ -110,12 +164,26 @@ export const SidebarApp = () => {
       isLoading,
       error,
       invalidate,
+      otherFilters: allpages.exams.otherFilters,
+      updateExamdetailsOtherFilter,
       resultDetails,
       updateResultDetail,
-      changePage: (page) => {
-        changePage(activeTab, page)
-        queryClient.setQueryData([activeTab], null);
+      changeDataPage: (page) => {
+        changePage(activeTab, page);
+        queryClient.invalidateQueries([activeTab, allpages[activeTab].pageNo]);
       },
+      allSessions,
+      allExamTypes,
+      allTerms,
+      termsLoading,
+      sessionsLoading,
+      examTypesLoading,
+      changeSearchKey: (searchKey) => {
+        changePage(activeTab, 1, searchKey);
+        //console.log("Changing search key for", activeTab, "to", searchKey);
+        queryClient.invalidateQueries([activeTab, 1, searchKey]);
+      }
+      ,
       socket: socketRef.current,
       queryClient,
     }),
@@ -161,6 +229,7 @@ export const SidebarApp = () => {
               actions={{ "allow retake": helpRetakeExam }}
               contents={queryClient.getQueryData(["results", ...Object.values(resultDetails)])?.contents ?? activeTabData}
               hide={['id', 'examId']}
+              tableActions={{ "Download results": () => downloadResult(resultDetails['className'], resultDetails['subject'], resultDetails['examType'], resultDetails['session'], resultDetails['term']) }}
             />}
         </>);
     },
