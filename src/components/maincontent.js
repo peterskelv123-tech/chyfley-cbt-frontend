@@ -27,7 +27,7 @@ export const Main = ({
   const [timeLeft, setTimeLeft] = useState(time);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
- 
+
   const {
     exams,
     setCurrentExam,
@@ -47,18 +47,9 @@ export const Main = ({
   } = useContext(ExamContext);
   const studentId = regNo;
   const { onCameraStream } = useMediasoupProducer(socket, currentExam, regNo);
-useEffect(() => {
-  if (!socket || !currentExam) return;
-   //console.log("Attempting to access camera for exam:", currentExam);
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-    .then(onCameraStream)
-    .catch(err => console.error("Camera init failed:", err));
-
-  // Cleanup: stop tracks on unmount
-  return () => {
-    onCameraStream && onCameraStream({ getTracks: () => [] });
-  };
-}, [socket, currentExam]);  //const { startStreaming, stopStreaming } = useStudentMediaStream(socket, currentExam, regNo);
+  useEffect(() => {
+    if (!socket || !currentExam) return;
+  }, [socket, currentExam]);  //const { startStreaming, stopStreaming } = useStudentMediaStream(socket, currentExam, regNo);
   // ----------------------------------------------
   // Timer calculation
   // ----------------------------------------------
@@ -96,47 +87,47 @@ useEffect(() => {
   const submitLock = useRef(false);
   const handleSubmitRef = useRef();
 
-const handleSubmit = async (reason = "Submitted") => {
-  if (submitLock.current) return;
-  submitLock.current = true;
+  const handleSubmit = async (reason = "Submitted") => {
+    if (submitLock.current) return;
+    submitLock.current = true;
 
-  const examBeingSubmitted = currentExam;
+    const examBeingSubmitted = currentExam;
 
-  try {
-    setIsSubmitted(true);
+    try {
+      setIsSubmitted(true);
 
-    const result=await submitExamAnswers(regNo, examBeingSubmitted, answersRef.current);
-    console.log("Exam submission result:", result.data.score);
-    toast.success("Exam submitted successfully you got "+result.data.score+" marks", {
-      duration: 5000,
-    });
-    const remainingExams = exams.filter(e => e.id !== examBeingSubmitted);
-    dispatch(changeExams(remainingExams));
-
-    if (remainingExams.length === 0) {
-      socket?.emit("student-leave", {
-        studentId: regNo,
-        examId: examBeingSubmitted,
-        timeLeft,
+      const result = await submitExamAnswers(regNo, examBeingSubmitted, answersRef.current);
+      console.log("Exam submission result:", result.data.score);
+      toast.success("Exam submitted successfully you got " + result.data.score + " marks", {
+        duration: 5000,
       });
+      const remainingExams = exams.filter(e => e.id !== examBeingSubmitted);
+      dispatch(changeExams(remainingExams));
 
-      socket?.close();
-      setSocket(null);
-      HARD_KILL_CAMERA();
+      if (remainingExams.length === 0) {
+        socket?.emit("student-leave", {
+          studentId: regNo,
+          examId: examBeingSubmitted,
+          timeLeft,
+        });
 
-      navigate("/", { replace: true });
-      return;
+        socket?.close();
+        setSocket(null);
+        HARD_KILL_CAMERA();
+
+        navigate("/", { replace: true });
+        return;
+      }
+
+      setCurrentExam(remainingExams[0].id);
+
+    } catch (err) {
+      toast.error(err.message || "Error submitting exam");
+      setIsPaused(true);
+    } finally {
+      submitLock.current = false;
     }
-
-    setCurrentExam(remainingExams[0].id);
-
-  } catch (err) {
-    toast.error(err.message || "Error submitting exam");
-    setIsPaused(true);
-  } finally {
-    submitLock.current = false;
-  }
-};
+  };
 
 
 
@@ -282,7 +273,9 @@ const handleSubmit = async (reason = "Submitted") => {
                 <div className="col-md-4 d-flex flex-column align-items-center justify-content-start">
                   {/* Camera at the top */}
                   <div className="mt-3 mb-2">
-                    {!isSubmitted && <CameraComponent onCameraStreamCallback={onCameraStream}/>}
+                    {!isSubmitted && <CameraComponent
+                      onCameraStreamCallback={onCameraStream}
+                    />}
                   </div>
 
                   {/* Spacer pushes the button down */}

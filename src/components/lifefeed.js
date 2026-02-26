@@ -2,65 +2,52 @@ import { useEffect, useRef } from "react";
 
 export const CameraComponent = ({ onCameraStreamCallback }) => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  useEffect(() => {
-  console.log("Camera component mounted");
-}, []);
-  useEffect(() => {
-    const constraints = { video: { facingMode: "user" }, audio: true };
+  const startedRef = useRef(false);
 
-    const stopCamera = () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (videoRef.current) videoRef.current.srcObject = null;
-    };
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    const hardFail = (reason) => {
-      console.error("🚨 Camera hard fail:", reason);
-      alert("Camera and microphone access are required to take this exam.");
-      window.location.replace("/login");
-    };
+    console.log("📷 Camera component mounted");
 
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (!stream || !stream.getVideoTracks().length || !stream.getAudioTracks().length) {
-          throw new Error("Missing video or audio track");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+
+        console.log("🎥 Camera stream obtained");
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
 
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-
-        if (typeof onCameraStreamCallback === "function") {
-          console.log("Camera stream obtained, invoking callback");
-          onCameraStreamCallback(stream); // send stream to mediasoup producer
-        }
+        // ✅ CORRECT CALLBACK
+        onCameraStreamCallback?.(stream);
       } catch (err) {
-        hardFail(err);
+        console.error("❌ Failed to get camera stream", err);
       }
     };
 
     startCamera();
-    return () => stopCamera();
+
+    return () => {
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject
+          .getTracks()
+          .forEach(track => track.stop());
+      }
+    };
   }, [onCameraStreamCallback]);
 
   return (
-    <div className="mt-3 d-flex justify-content-center">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        style={{
-          width: "70%",
-          maxWidth: "420px",
-          transform: "scaleX(-1)",
-          borderRadius: "10px",
-          border: "1px solid rgb(81, 194, 37)",
-        }}
-      />
-    </div>
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      playsInline
+      style={{ width: "100%", height: "100%", background: "black" }}
+    />
   );
 };

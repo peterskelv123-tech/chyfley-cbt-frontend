@@ -15,7 +15,7 @@ import SmartTable from '../components/table';
 export const AdminContext = createContext(null);
 export const SidebarApp = () => {
   const queryClient = useQueryClient();
-  const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
   const {
     data: allSessions = [],
     isLoading: sessionsLoading,
@@ -101,10 +101,10 @@ export const SidebarApp = () => {
   }
   useEffect(() => {
     if (activeTab !== "attendance") return;
-    if (socketRef.current) return;
+    if (socket) return;
 
     const s = createSocket();
-    socketRef.current = s;
+    setSocket(s);
 
     s.on("connect", () => {
       console.log("✅ Attendance socket connected:", s.id);
@@ -123,7 +123,7 @@ export const SidebarApp = () => {
     return () => {
       s.off("attendance-update", handleAttendanceUpdate);
       s.disconnect();
-      socketRef.current = null;
+      setSocket(null);
     };
   }, [activeTab, queryClient]);
   const { data: activeTabData, isLoading, error } = useExamTabs(
@@ -184,7 +184,7 @@ export const SidebarApp = () => {
         queryClient.invalidateQueries([activeTab, 1, searchKey]);
       }
       ,
-      socket: socketRef.current,
+      socket: socket,
       queryClient,
     }),
     [
@@ -195,7 +195,7 @@ export const SidebarApp = () => {
       error,
       resultDetails,
       changePage,
-      socketRef.current,
+      socket,
       queryClient,
     ]
   );
