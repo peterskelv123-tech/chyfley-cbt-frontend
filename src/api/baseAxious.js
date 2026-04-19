@@ -8,7 +8,11 @@ export const api = axios.create({
     Accept: process.env.REACT_APP_API_ACCEPT,
   },
 });
-
+export const backend_mapping_of_filter = {
+  [ALL_EXAM_FILTERS[0]]: "examType",
+  [ALL_EXAM_FILTERS[1]]: "term",
+  [ALL_EXAM_FILTERS[2]]: "session"
+};
 export const fetchExamDetailFilters = async (filterKey) => {
   if (!filterKey) throw new Error("No filter key provided");
   if (!ALL_EXAM_FILTERS.includes(filterKey)) throw new Error(`Invalid filter key. Allowed: ${ALL_EXAM_FILTERS.join(", ")}`);
@@ -72,11 +76,6 @@ export const fetchAttendance = async (socket) => {
 
 export const fetchExamDetails = async (page, searchKey = "", ...filters) => {
   console.log("Fetching exam details for page:", page, "searchKey:", searchKey, "filters:", filters);
-  const backend_mapping_of_filter = {
-    [ALL_EXAM_FILTERS[0]]: "examType",
-    [ALL_EXAM_FILTERS[1]]: "term",
-    [ALL_EXAM_FILTERS[2]]: "session"
-  };
   try {
     const response = await api.get("/exams", {
       params: {
@@ -121,7 +120,7 @@ export const downloadResult = async (
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${className}_${subject}_results.pdf`;
+    link.download = `${className}_${subject}_${examType}_${session}_${term}_results.pdf`;
     document.body.appendChild(link);
     link.click();
 

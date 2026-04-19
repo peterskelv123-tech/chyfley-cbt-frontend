@@ -1,31 +1,31 @@
 import { useRef, useEffect, useCallback } from "react";
 import * as mediasoupClient from "mediasoup-client";
-
-export const useMediasoupProducer = (socket, currentExam, studentId) => {
+export const useMediasoupProducer = (socket, studentId) => {
   const deviceRef = useRef(null);
   const transportRef = useRef(null);
   const streamRef = useRef(null);
   const producersRef = useRef([]);
   const producingRef = useRef(false);
+  const initializedRef = useRef(false);
 
-  // -----------------------------
-  // Produce tracks safely
-  // -----------------------------
   const tryProduce = useCallback(async () => {
     if (
       producingRef.current ||
       !transportRef.current ||
       !streamRef.current
-    ) {
-      return;
-    }
+    ) return;
 
     producingRef.current = true;
-    console.log("🚀 Producing media tracks");
 
     try {
       const stream = streamRef.current;
       const transport = transportRef.current;
+
+      // 🔥 CLEAN OLD PRODUCERS FIRST
+      producersRef.current.forEach(p => {
+        try { p.close(); } catch { }
+      });
+      producersRef.current = [];
 
       const videoTrack = stream.getVideoTracks()[0];
       const audioTrack = stream.getAudioTracks()[0];
@@ -43,19 +43,19 @@ export const useMediasoupProducer = (socket, currentExam, studentId) => {
       }
     } catch (err) {
       console.error("❌ Produce failed:", err);
+    } finally {
       producingRef.current = false;
     }
   }, []);
 
-  // -----------------------------
-  // Init mediasoup
-  // -----------------------------
   useEffect(() => {
-    if (!socket || !currentExam || !studentId) return;
+    if (!socket || !studentId || initializedRef.current) return;
+
+    initializedRef.current = true;
 
     const init = async () => {
       try {
-        console.log("🚀 Initializing student mediasoup");
+        console.log("🚀 Initializing student mediasoup for", studentId, "(ONCE)");
 
         const routerRtpCapabilities = await socket.emitWithAck(
           "get-rtp-capabilities"
@@ -111,21 +111,24 @@ export const useMediasoupProducer = (socket, currentExam, studentId) => {
     init();
 
     return () => {
+      console.log("🧹 Cleaning up producer (FINAL ONLY)");
+
       producersRef.current.forEach((p) => p.close());
       transportRef.current?.close();
+
       producersRef.current = [];
       producingRef.current = false;
+      initializedRef.current = false;
     };
-  }, [socket, currentExam, studentId, tryProduce]);
+  }, [socket, studentId, tryProduce]);
 
-  // -----------------------------
-  // Camera ready
-  // -----------------------------
   const onCameraStream = useCallback(
     (stream) => {
       if (!stream) return;
+
       streamRef.current = stream;
       console.log("🎥 Camera ready");
+
       tryProduce();
     },
     [tryProduce]

@@ -5,11 +5,9 @@ import { ControlledDropdownExample } from "./controlledDropDown";
 import { handlePostForm } from "../api/formPost";
 import { EXAMTYPE, TERM, MODALTITLES, ALL_EXAM_FILTERS } from "../constant";
 import SmartTable from "./table";
-import { api, fetchExamDetailFilters } from "../api/baseAxious";
+import { api, backend_mapping_of_filter } from "../api/baseAxious";
 import { AdminContext } from "../pages/adminPage";
 import { DeleteWarningModal } from "./deleteModal";
-import { useQuery } from "@tanstack/react-query";
-import { use } from "react";
 import SmartInputDropdown from "./smart_input_dropdown";
 export const AdminExamPageContent = () => {
     const [modalState, setModalState] = useState({ visibility: false, topic: "" });
@@ -72,13 +70,27 @@ export const AdminExamPageContent = () => {
         register,
         handleSubmit,
         formState: { errors, isSubmitting },
+        setValue,
         reset,
     } = useForm({
         shouldUnregister: false,
     });
-
+    useEffect(() => {
+        const formValues = {};
+        // Map backend filters to form fields
+        ALL_EXAM_FILTERS.forEach((filter) => {
+            formValues[backend_mapping_of_filter[filter]] = otherFilters[filter] ?? "";
+        });
+        reset(formValues);
+    }, [otherFilters, setValue, reset]);
     const { current, all } = invalidate
-    const exams = activeTabData;
+    const queryKey = [
+        "exams",
+        pageInfo.pageNo,
+        pageInfo.searchKey,
+        ...ALL_EXAM_FILTERS.map(k => pageInfo.otherFilters?.[k])
+    ];;
+    const exams = queryClient.getQueryData(queryKey)?.contents ?? activeTabData;
     // ✅ Derived table data (safe)
     const viewableTableDetails = useMemo(() => {
         if (!exams) return [];
@@ -110,19 +122,34 @@ export const AdminExamPageContent = () => {
 
     // ✅ Toggle status (server + invalidate)
     const toggleStatus = async (examId) => {
+        const previousData = queryClient.getQueryData(queryKey);
+        //console.log("previous data for toggle:", previousData);
         try {
-            const exam = exams.data.find(e => e.id === examId);
-            await api.put('/exams', undefined, {
-                params: { examId, status: !exam.status }
+            queryClient.setQueryData(queryKey, (oldData) => {
+                console.log("Old data in toggle updater:", oldData);
+                if (!oldData) return oldData;
+
+                return {
+                    ...oldData,
+                    data: oldData.data.map((exam) =>
+                        exam.id === examId
+                            ? { ...exam, status: !exam.status }
+                            : exam
+                    )
+                };
             });
-            // 🔥 refetch exact page
-            queryClient.invalidateQueries({
-                queryKey: ["exams", pageInfo.pageNo],
-                exact: true,
+
+            const exam = previousData.data.find(e => e.id === examId);
+
+            await api.put("/exams", undefined, {
+                params: { examId, status: !exam.status }
             });
 
         } catch (err) {
-            console.error(err);
+
+            // rollback on failure
+            queryClient.setQueryData(queryKey, previousData);
+            console.error("Failed to toggle status:", err);
             alert("Failed to toggle status");
         }
     };
@@ -138,7 +165,7 @@ export const AdminExamPageContent = () => {
 
                 alert(response.data.message ?? "exam deleted successfully")
                 if (response.data.statusCode === 200) {
-                    queryClient.setQueryData(["exams"], (old) => ({
+                    queryClient.setQueryData(queryKey, (old) => ({
                         ...old,
                         data: old.data.filter((exam) => exam.id !== selectedExam)
                     }));
@@ -228,6 +255,7 @@ export const AdminExamPageContent = () => {
                     <ControlledDropdownExample
                         title="Exam Type"
                         name="examType"
+                        value={otherFilters[ALL_EXAM_FILTERS[0]] ?? ""}
                         register={register}
                         error={errors.examType}
                         options={EXAMTYPE}
@@ -241,6 +269,7 @@ export const AdminExamPageContent = () => {
                             className={`form-control ${errors.session ? "is-invalid" : ""}`}
                             {...register("session", { required: "Session is required" })}
                             placeholder="e.g. 2024/2025"
+                            value={otherFilters[ALL_EXAM_FILTERS[2]] ?? ""}
                         />
                         {errors.session && (
                             <div className="invalid-feedback">{errors.session.message}</div>
@@ -250,12 +279,12 @@ export const AdminExamPageContent = () => {
                     <ControlledDropdownExample
                         title="Term"
                         name="term"
+                        value={otherFilters[ALL_EXAM_FILTERS[1]] ?? ""}
                         register={register}
                         error={errors.term}
                         options={TERM}
                         required
                     />
-
                     <div className="mb-3">
                         <label className="form-label">Time Allocated (minutes)</label>
                         <input
@@ -324,7 +353,7 @@ export const AdminExamPageContent = () => {
                             {...register("questionFile", {
                                 required: "File is required",
                             })}
-                            accept=".txt,.pdf,.docx"
+                            accept=".txt,.docx"
                         />
                         {errors.questionFile && (
                             <div className="invalid-feedback">

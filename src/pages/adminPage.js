@@ -101,12 +101,11 @@ export const SidebarApp = () => {
   }
   useEffect(() => {
     if (activeTab !== "attendance") return;
-    if (socket) return;
 
-    const s = createSocket();
+    const s = createSocket({ admin: true });
     setSocket(s);
-
     s.on("connect", () => {
+      s.emit("admin-join");
       console.log("✅ Attendance socket connected:", s.id);
     });
 
@@ -118,7 +117,6 @@ export const SidebarApp = () => {
     s.on("attendance-update", handleAttendanceUpdate);
 
     // Optional: fetch initial snapshot
-    s.emit("admin-join");
 
     return () => {
       s.off("attendance-update", handleAttendanceUpdate);
@@ -200,13 +198,19 @@ export const SidebarApp = () => {
     ]
   );
   const helpRetakeExam = useCallback((regNo) => {
-    if (!regNo && !Object.values(resultDetails).includes("")) return;
+    const resultKey = ["results", ...Object.values(resultDetails)];
+    const intialData = queryClient.getQueryData([...resultKey]);
+    console.log("Initial data for retake:", intialData, "with key:", resultKey);
+    //console.log("here is the result key:",)
     try {
       deleteExamStatus.mutate(regNo);
-      queryClient.setQueryData(['results', ...Object.values(resultDetails)], (oldData) => {
-        if (!oldData || !oldData.contents) return oldData;
-        const updatedContents = oldData.contents.filter(item => item.regNo !== regNo);
-        return { ...oldData, contents: updatedContents };
+      queryClient.setQueryData([...resultKey], (oldData) => {
+        console.log("OLD DATA:", oldData);
+        if (!oldData) return oldData;
+        console.log("Filtering out regNo:", regNo);
+        const updatedContents = oldData.filter(item => item.id !== regNo);
+        console.log("Updated contents after retake filter:", updatedContents);
+        return updatedContents;
       });
       console.log(queryClient.getQueryData(['results', ...Object.values(resultDetails)]));
     } catch (e) {

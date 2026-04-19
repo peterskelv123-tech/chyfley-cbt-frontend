@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useMemo } from "react";
+import { useState, useRef, useEffect, createContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,9 +10,22 @@ export const ExamContext = createContext();
 export const ExamPage = () => {
   const exams = useSelector((state) => state.items.exams);
   //console.log(exams)
-  const [socket, setSocket] = useState(() => createSocket());
   const [currentExam, setCurrentExam] = useState(exams[0]?.id ?? 0);
   const regno = useSelector((state) => state.items.regNo);
+  const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
+  useEffect(() => {
+    const s = createSocket({ studentId: regno });
+
+    socketRef.current = s;
+    setSocket(s); // ✅ triggers re-render when ready
+
+    return () => {
+      s.disconnect();
+      socketRef.current = null;
+      setSocket(null);
+    };
+  }, [regno]);
   const [question, setQuestion] = useState(null);
   const [table, setTable] = useState([]);
   const [tabledisplay, setTabledisplay] = useState(false);
@@ -80,13 +93,12 @@ export const ExamPage = () => {
       { roomId: String(currentExam) },
       async ({ rtpCapabilities }) => {
         console.log("Joined room, RTP caps:", rtpCapabilities);
-
         // Store for later (device creation)
         window.__rtpCapabilities = rtpCapabilities;
       }
     );
 
-//console.log("Socket initialized for exam:", currentExam);
+    //console.log("Socket initialized for exam:", currentExam);
     return () => {
       socket.off("join-room");
     };
@@ -252,7 +264,6 @@ export const ExamPage = () => {
           displayNavBar,
           table,
           socket,
-          setSocket,
           subject,
           className
         }}  >

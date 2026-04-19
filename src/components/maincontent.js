@@ -41,12 +41,11 @@ export const Main = ({
     table,
     currentExam,
     socket,
-    setSocket,
     subject,
     className
   } = useContext(ExamContext);
   const studentId = regNo;
-  const { onCameraStream } = useMediasoupProducer(socket, currentExam, regNo);
+  const { onCameraStream } = useMediasoupProducer(socket, studentId);
   useEffect(() => {
     if (!socket || !currentExam) return;
   }, [socket, currentExam]);  //const { startStreaming, stopStreaming } = useStudentMediaStream(socket, currentExam, regNo);
@@ -103,16 +102,13 @@ export const Main = ({
       });
       const remainingExams = exams.filter(e => e.id !== examBeingSubmitted);
       dispatch(changeExams(remainingExams));
-
+      socket?.emit("student-leave", {
+        studentId: regNo,
+        examId: examBeingSubmitted,
+        timeLeft,
+      });
       if (remainingExams.length === 0) {
-        socket?.emit("student-leave", {
-          studentId: regNo,
-          examId: examBeingSubmitted,
-          timeLeft,
-        });
 
-        socket?.close();
-        setSocket(null);
         HARD_KILL_CAMERA();
 
         navigate("/", { replace: true });
@@ -273,9 +269,9 @@ export const Main = ({
                 <div className="col-md-4 d-flex flex-column align-items-center justify-content-start">
                   {/* Camera at the top */}
                   <div className="mt-3 mb-2">
-                    {!isSubmitted && <CameraComponent
-                      onCameraStreamCallback={onCameraStream}
-                    />}
+                    <div style={{ display: isSubmitted ? "none" : "block" }}>
+                      <CameraComponent onCameraStreamCallback={onCameraStream} />
+                    </div>
                   </div>
 
                   {/* Spacer pushes the button down */}

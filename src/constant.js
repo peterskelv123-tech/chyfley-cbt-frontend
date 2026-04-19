@@ -11,23 +11,25 @@ const fieldsWithFindAll = ["subjects", "class"]
 const MOST_LIKELY_CHANGING_EXAM_FIELDS = ["subject", "type", "session", "term"];
 // adminExamPageContent constant
 export function HARD_KILL_CAMERA() {
-  // 1. Stop tracks from our camera component
-  if (window.__stopCamera) {
-    try { window.__stopCamera(); } catch { }
+  console.log("🛑 HARD CAMERA STOP triggered");
+
+  // 1️⃣ Stop stream stored globally (recommended)
+  if (window.__mediaStream) {
+    window.__mediaStream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch { }
+    });
+
+    window.__mediaStream = null;
   }
 
-  // 2. Stop all active media streams in the browser
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        stream.getTracks().forEach(track => track.stop());
-        console.log("✅ HARD CAMERA STOP: All tracks force-closed");
-      })
-      .catch(() => { });
-  }
+  // 2️⃣ Clear all video elements
+  document.querySelectorAll("video").forEach((v) => {
+    v.srcObject = null;
+  });
 
-  // 3. Remove all srcObject references
-  document.querySelectorAll("video").forEach(v => (v.srcObject = null));
+  console.log("✅ Camera fully stopped");
 }
 
 const MODALTITLES = ['Create an Exam', "sure you wanna delete this exam"]

@@ -1,15 +1,13 @@
 import { io } from "socket.io-client";
-export const createSocket = () => {
+export const createSocket = ({ studentId, admin } = {}) => {
   const socket = io(process.env.REACT_APP_SOCKET_URL, {
-  transports: ["websocket"], // ✅ ONLY websocket
-  autoConnect: true,
-});
-
-  socket.on("connect", () => console.log("Socket connected ✅", socket.id));
-  socket.on("connect_error", (err) => console.error("Socket connect error:", err));
-  socket.on("disconnect", (reason) => console.log("Socket disconnected:", reason));
+    transports: ["websocket"],
+    autoConnect: true,
+    auth: {
+      studentId,
+      admin,
+    },
+  });
 
   return socket;
 };
-
-

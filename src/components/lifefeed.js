@@ -16,7 +16,7 @@ export const CameraComponent = ({ onCameraStreamCallback }) => {
           video: true,
           audio: true,
         });
-
+        window.__mediaStream = stream;
         console.log("🎥 Camera stream obtained");
 
         if (videoRef.current) {

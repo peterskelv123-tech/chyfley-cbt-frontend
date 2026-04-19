@@ -36,7 +36,7 @@ export const LoginPage = () => {
         const response = await api.get(`/exams/take`, {
           params: { className: loginDetail.class, regNo: loginDetail["full Name"] },
         });
-
+        console.log("API Response:", response.data); // 🔍 Debug log for API response
         if (response.data.statusCode === 200) {
           const { data } = response.data; // depends on how your ResponseService wraps output
           console.log("Fetched Exam Data:", response.data.data);
@@ -45,11 +45,12 @@ export const LoginPage = () => {
             dispatch(changeExams(data))
             navigation("/exam", { replace: true })
           }
-          else{
+          else {
             dispatch(changeExams(data))
             navigation("/exam-selection", { replace: true })
           }
         } else {
+          console.error("Login failed with status code:", response.data);
           toast.error(response.data.message || "Failed to fetch exam data. Try again.", { duration: 4000 });
         }
       } catch (error) {
@@ -62,7 +63,7 @@ export const LoginPage = () => {
   };
   const leftHalfStyle = {
     height: "100vh",
-    backgroundImage: `url(/img/BG2.jpeg)`,
+    backgroundImage: `url(/img/exam5.jpg)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     position: "relative",

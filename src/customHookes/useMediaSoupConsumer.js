@@ -122,6 +122,7 @@ export const useMediasoupAdmin = (socket) => {
         videoEl.srcObject = stream;
         videoEl.muted = true;
         videoEl.playsInline = true;
+        videoEl.controls = false;
       }
 
       if (consumer.kind === "audio" && audioEl) {
@@ -129,6 +130,7 @@ export const useMediasoupAdmin = (socket) => {
       }
       if (videoEl && videoEl.srcObject !== stream) {
         videoEl.srcObject = stream;
+        videoEl.load();
       }
 
       if (audioEl && audioEl.srcObject !== stream) {
@@ -141,7 +143,9 @@ export const useMediasoupAdmin = (socket) => {
 
       // ▶️ then play
       if (consumer.kind === "video" && videoEl) {
-        await videoEl.play().catch(() => { });
+        setTimeout(() => {
+          videoEl.play().catch(() => { });
+        }, 0);
       }
       if (consumer.kind === "audio" && audioEl) {
         await audioEl.play().catch(() => { });
