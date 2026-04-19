@@ -1,11 +1,12 @@
-export const ControlledDropdownExample=({
+export const ControlledDropdownExample = ({
   title,
   name,
   register,
   error,
   options = [],
+  value = "",
   required = false,
-})=> {
+}) => {
   return (
     <div className="mb-3">
       <label htmlFor={name} className="form-label">
@@ -14,6 +15,7 @@ export const ControlledDropdownExample=({
 
       <select
         id={name}
+        defaultValue={value}
         className={`form-select ${error ? "is-invalid" : ""}`}
         {...register(name, required ? { required: `Please select a ${title}` } : {})}
       >

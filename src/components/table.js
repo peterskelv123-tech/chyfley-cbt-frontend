@@ -1,11 +1,39 @@
+import SmartInput from "./smartInput";
+import { useEffect } from "react";
 const SmartTable = ({
   contents = [],
   actions = {},
   tableActions = {},
   metaData = {},
   actionParams,
+  column_characteristics = { hidable: [], editAble: [] },
+  column_edit_function={},
   hide = []
 }) => {
+   useEffect(() => {
+    const editableColumns = column_characteristics.editAble || [];
+
+    if (editableColumns.length > 0) {
+      const editFuncKeys = Object.keys(column_edit_function);
+
+      // Check if column_edit_function is empty
+      if (editFuncKeys.length === 0) {
+        throw new Error(
+          "'column_edit_function' is empty but 'editAble' columns are defined: " +
+          editableColumns.join(', ')
+        );
+      }
+
+      // Check if all editable columns have corresponding edit functions
+      const missingKeys = editableColumns.filter(col => !editFuncKeys.includes(col));
+      if (missingKeys.length > 0) {
+        throw new Error(
+          "'column_edit_function' is missing keys for the following editable columns: " +
+          missingKeys.join(', ')
+        );
+      }
+    }
+  }, [column_characteristics, column_edit_function]);
   if (!contents || contents.length === 0) {
     return <>
       <p>No data available</p>
@@ -46,7 +74,21 @@ const SmartTable = ({
           {contents.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {headers.map((header, i) => (
-                !hide.includes(header) && <td key={i}>{String(row[header]).toUpperCase()}</td>
+                !hide.includes(header) && <td key={i}>{
+                  !column_characteristics.hidable.includes(header) && !column_characteristics.editAble.includes(header) && String(row[header]).toUpperCase()
+                }
+                  {(column_characteristics.hidable.includes(header) || column_characteristics.editAble.includes(header))
+                    && <SmartInput
+                      value={row[header]??"NULL"}
+                      editable={column_characteristics.editAble.includes(header)}
+                      onChange={(newValue) => {
+                        if (column_edit_function[header]) {
+                          column_edit_function[header](newValue, row, rowIndex);
+                        }
+                      }}
+                      hideable={column_characteristics.hidable.includes(header)}
+                    />}
+                </td>
               ))}
               {hasActions &&
                 Object.keys(actions).map((actionName, actionIndex) => (

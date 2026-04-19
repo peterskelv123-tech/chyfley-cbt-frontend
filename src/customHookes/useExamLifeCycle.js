@@ -1,44 +1,30 @@
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+// Custom hook to handle the student exam lifecycle
 export function useExamLifecycle({
   isPaused,
   isSubmitted,
   timeLeft,
   setTimeLeft,
-  handleSubmitRef, // pass the ref from component
+  handleSubmitRef, // ref to student's submit function
   socket,
   regNo,
   currentExam,
   subject,
   className,
   answersRef,
+  stopStreaming, // from useStudentMediaStream
 }) {
-  // Internal camera cleanup or lock can remain here if needed
-  // submitLock is now managed in the component
-
-  //----------------------------------------------
-  // CAMERA CLEANUP
-  //----------------------------------------------
   const timerRef = useRef(null);
-  useEffect(() => {
-    return () => {
-      console.log("CAMERA STOPPED FROM CLEANUP");
-      if (window.__stopCamera) {
-        try {
-          window.__stopCamera();
-        } catch (err) {
-          console.warn("Error stopping camera:", err);
-        }
-      }
-      console.log("Main rendered, isSubmitted =", isSubmitted);
-    };
-  }, []);
+  const navigate = useNavigate();
 
   //----------------------------------------------
-  // TIMER
+  // TIMER: decrement every second and send status
   //----------------------------------------------
   useEffect(() => {
     if (isPaused || isSubmitted || timerRef.current) return;
-    console.log("time left is:", timeLeft)
+
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -49,15 +35,15 @@ export function useExamLifecycle({
         }
 
         const updated = prev - 1;
-        socket.emit("student-status", {
+
+        socket?.emit("student-status", {
           studentId: regNo,
           examId: currentExam,
           subject,
           className,
           timeLeft: updated,
           answered: answersRef.current?.length ?? 0,
-          active: true
-          // ✅ use ref
+          active: true,
         });
 
         return updated;
@@ -65,13 +51,83 @@ export function useExamLifecycle({
     }, 1000);
 
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [isPaused, isSubmitted, regNo, currentExam, socket]);
+
+  //----------------------------------------------
+  // FORCE-STOP: triggered by admin
+  //----------------------------------------------
+  useEffect(() => {
+    if (!socket || !regNo) return;
+
+    const forceStopHandler = (data) => {
+      if (data.studentId === regNo) {
+        console.log("⚠️ Force-stop received from admin");
+
+        // Stop camera/audio immediately
+        stopStreaming?.();
+
+        // Submit exam immediately
+        handleSubmitRef.current?.("Stopped by admin");
+
+        // Optional: Disable buttons/UI here if needed
+
+        // Notify student visually
+        toast.error("Your exam has been stopped by the admin!", { duration: 4000 });
       }
     };
-  }, [isPaused, isSubmitted, regNo, currentExam, socket]); // ✅ removed answers.length
 
+    socket.on("force-stop", forceStopHandler);
+
+    return () => {
+      socket.off("force-stop", forceStopHandler);
+    };
+  }, [socket, regNo, stopStreaming, handleSubmitRef]);
+
+  //----------------------------------------------
+  // SOCKET JOIN / RECONNECT
+  //----------------------------------------------
+  useEffect(() => {
+    if (!socket || !regNo || !currentExam) return;
+
+    const joinPayload = { studentId: regNo, examId: currentExam, timeLeft };
+
+    const onConnect = () => {
+      console.log("✅ Socket connected:", socket.id);
+      socket.emit("student-join", joinPayload, (ack) => {
+        console.log("✅ JOIN ACK:", ack);
+      });
+    };
+
+    socket.on("connect", onConnect);
+
+    return () => {
+      socket.off("connect", onConnect);
+    };
+  }, [socket, regNo, currentExam, timeLeft]);
+
+  //----------------------------------------------
+  // BLOCK FORBIDDEN SHORTCUTS
+  //----------------------------------------------
+  useEffect(() => {
+    const blockShortcuts = (e) => {
+      if (
+        e.ctrlKey ||
+        e.key === "F12" ||
+        e.key === "Tab" ||
+        (e.metaKey && e.key.toLowerCase() === "r")
+      ) {
+        e.preventDefault();
+        handleSubmitRef.current?.("Forbidden key pressed");
+        toast.error("Shortcut disabled during exam!", { duration: 4000 });
+      }
+    };
+
+    window.addEventListener("keydown", blockShortcuts);
+    return () => window.removeEventListener("keydown", blockShortcuts);
+  }, []);
 
   //----------------------------------------------
   // VISIBILITY + BLUR + UNLOAD AUTO-SUBMIT
@@ -80,12 +136,12 @@ export function useExamLifecycle({
     if (isPaused) return;
 
     let blurTimeout = null;
-    const TIMEOUT = 1000; // 15 seconds
+    const TIMEOUT = 1000; // 1 second for testing; increase as needed
 
-    const handleVisibility = () => {
+    const handleVisibilityChange = () => {
       if (document.hidden && !isSubmitted) {
         blurTimeout = setTimeout(() => {
-          handleSubmitRef.current && handleSubmitRef.current("Tab switched / minimized");
+          handleSubmitRef.current?.("Tab switched / minimized");
         }, TIMEOUT);
       } else {
         clearTimeout(blurTimeout);
@@ -95,9 +151,7 @@ export function useExamLifecycle({
     const handleBlur = () => {
       if (!isSubmitted) {
         blurTimeout = setTimeout(() => {
-          if (!document.hidden) {
-            handleSubmitRef.current && handleSubmitRef.current("Window unfocused");
-          }
+          handleSubmitRef.current?.("Window unfocused");
         }, TIMEOUT);
       }
     };
@@ -106,71 +160,25 @@ export function useExamLifecycle({
 
     const handleUnload = (e) => {
       if (!isSubmitted) {
-        handleSubmitRef.current && handleSubmitRef.current("Page closed or refreshed");
+        handleSubmitRef.current?.("Page closed or refreshed");
+        stopStreaming?.();
         e.preventDefault();
         e.returnValue = "";
+        navigate("/", { replace: true });
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
+    /*document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
-    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("beforeunload", handleUnload);*/
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("beforeunload", handleUnload);
       clearTimeout(blurTimeout);
     };
-  }, [isSubmitted, isPaused]);
-
-  //----------------------------------------------
-  // SOCKET LIFECYCLE + SHORTCUTS
-  //----------------------------------------------
-  useEffect(() => {
-    if (!regNo || !currentExam) {
-      console.log("⛔ regNo or currentExam not ready yet.");
-      return;
-    }
-
-    const joinPayload = { studentId: regNo, examId: currentExam, timeLeft };
-
-    const forceStopHandler = (data) => {
-      console.log("RECEIVED STOP:", data);
-      if (data.studentId === regNo) handleSubmitRef.current && handleSubmitRef.current("Stopped by admin");
-    };
-
-    const onConnect = () => {
-      console.log("✅ Connected:", socket.id);
-      socket.emit("student-join", joinPayload, (ack) => {
-        console.log("✅ JOIN ACK:", ack);
-      });
-    };
-
-    socket.on("force-stop", forceStopHandler);
-    socket.on("connect", onConnect);
-
-    const blockShortcuts = (e) => {
-      if (
-        e.ctrlKey ||
-        e.key === "F12" ||
-        e.key === "Tab" ||
-        (e.metaKey && e.key.toLowerCase() === "r")
-      ) {
-        e.preventDefault();
-        alert("Disabled during exam");
-        handleSubmitRef.current && handleSubmitRef.current("Forbidden key");
-      }
-    };
-
-    window.addEventListener("keydown", blockShortcuts);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("force-stop", forceStopHandler);
-      window.removeEventListener("keydown", blockShortcuts);
-    };
-  }, [regNo, currentExam, timeLeft, socket]);
+  }, [isSubmitted, isPaused, stopStreaming, navigate]);
 }

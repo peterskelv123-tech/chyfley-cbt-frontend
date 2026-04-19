@@ -10,7 +10,6 @@ import { createStore } from "redux";
 export const store = createStore(rootReducer)
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-
   <Provider store={store}>
     <App questions={QuizData} />
   </Provider>

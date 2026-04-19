@@ -1,4 +1,5 @@
-import { useState, useEffect, createContext, useMemo, } from "react";
+import { useState, useRef, useEffect, createContext, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, fetchUserProgress } from "../api/baseAxious";
@@ -9,12 +10,26 @@ export const ExamContext = createContext();
 export const ExamPage = () => {
   const exams = useSelector((state) => state.items.exams);
   //console.log(exams)
-  const [socket, setSocket] = useState(() => createSocket());
   const [currentExam, setCurrentExam] = useState(exams[0]?.id ?? 0);
   const regno = useSelector((state) => state.items.regNo);
+  const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
+  useEffect(() => {
+    const s = createSocket({ studentId: regno });
+
+    socketRef.current = s;
+    setSocket(s); // ✅ triggers re-render when ready
+
+    return () => {
+      s.disconnect();
+      socketRef.current = null;
+      setSocket(null);
+    };
+  }, [regno]);
   const [question, setQuestion] = useState(null);
   const [table, setTable] = useState([]);
   const [tabledisplay, setTabledisplay] = useState(false);
+  const navigate = useNavigate();
   const saveProgressMutation = useMutation({
     mutationFn: (updated) => api.post("/redis/student-progress", updated),
     onMutate: (variables) => {
@@ -27,24 +42,29 @@ export const ExamPage = () => {
       console.error("Failed to save progress for:", variables, "Error:", error);
     },
   });
+  useEffect(() => {
+    if (exams && exams.length <= 0) {
+      navigate("/", { replace: true });
+    }
+  }, [exams, navigate])
   const queryClient = useQueryClient()
   // Fetch exam questions using React Query v5
   const { data: examQuestions, isLoading, error } = useQuery({
     queryKey: ["examQuestions", currentExam],
     queryFn: () => fetchExamQuestions(currentExam, regno),
-    enabled: !!currentExam,
+    enabled: Boolean(currentExam && exams.length > 0),
   });
   const progressQuery = useQuery({
     queryKey: ['progress', currentExam, regno],
     queryFn: () => fetchUserProgress(currentExam, regno),
-    enabled: !!currentExam,
+    enabled: Boolean(currentExam && exams.length > 0),
   });
   const {
     answers = [],
     currentIndex = 0,
     questionMeta = [],
   } = progressQuery.data || {};
-  const { timeAllocated, subject, className, type,state } = useMemo(() => {
+  const { timeAllocated, subject, className, type } = useMemo(() => {
     const selectedExam = exams.find((exam) => exam.id === currentExam);
 
     if (!selectedExam) {
@@ -53,22 +73,36 @@ export const ExamPage = () => {
         subject: "",
         className: "",
         type: "",
-        state:""
       };
     }
-    let timeLeft = progressQuery.data?.timeLeft ?? null;
-    console.log("time left from query:",timeLeft)
-    if (timeLeft !== null && timeLeft > selectedExam.timeAllocated*60) {
-      timeLeft = timeLeft / 60
-    }
     return {
-      timeAllocated: timeLeft ?? selectedExam.timeAllocated,
+      timeAllocated: selectedExam.hasStarted
+        ? Math.max(0, selectedExam.remainingSeconds)
+        : selectedExam.durationSeconds
+      ,
       subject: selectedExam.subject,
       className: selectedExam.class,
       type: selectedExam.type,
-      state: timeLeft?"seconds":"minutes"
     };
-  }, [currentExam, exams,progressQuery.data]);
+  }, [currentExam, exams, progressQuery.data]);
+  useEffect(() => {
+    if (!socket || !currentExam) return;
+
+    socket.emit(
+      "student:join",
+      { roomId: String(currentExam) },
+      async ({ rtpCapabilities }) => {
+        console.log("Joined room, RTP caps:", rtpCapabilities);
+        // Store for later (device creation)
+        window.__rtpCapabilities = rtpCapabilities;
+      }
+    );
+
+    //console.log("Socket initialized for exam:", currentExam);
+    return () => {
+      socket.off("join-room");
+    };
+  }, [socket, currentExam]);
 
   // Generate question table & set first question
   useEffect(() => {
@@ -124,6 +158,12 @@ export const ExamPage = () => {
       } else if (mode === "previous" && currentIdx > 0) {
         newIndex = currentIdx - 1;
       }
+      else if (event.key && event.key === "ArrowLeft" && currentIdx > 0) {
+        newIndex = currentIdx - 1;
+      }
+      else if (event.key && event.key === "ArrowRight" && currentIdx < examQuestions.length - 1) {
+        newIndex = currentIdx + 1;
+      }
     }
 
     // 🔹 Update UI first
@@ -150,7 +190,7 @@ export const ExamPage = () => {
     queryClient.setQueryData(['progress', currentExam, regno], updatedProgress);
 
     // 🔹 Trigger mutation (autosave)
-    console.log("Saving progress:", updatedProgress); // ✅ debug log
+    //console.log("Saving progress:", updatedProgress); // ✅ debug log
     saveProgressMutation.mutate({
       studentId: regno,
       examId: currentExam,
@@ -192,20 +232,27 @@ export const ExamPage = () => {
     queryClient.setQueryData(['progress', currentExam, regno], updatedProgress);
 
     // Trigger mutation (autosave) and log for debugging
-    console.log("Saving answers progress:", updatedProgress);
+    //console.log("Saving answers progress:", updatedProgress);
     saveProgressMutation.mutate({
       studentId: regno,
       examId: currentExam,
       progress: updatedProgress,
     });
   };
-console.log("time sent to main:",timeAllocated);
+  //console.log("time sent to main:", timeAllocated);
+  // ADD THIS JUST BEFORE return (...) IN ExamPage
+
+  if (!currentExam || !exams || exams.length === 0) {
+    return null;
+  }
+
   return (
     <div className="All">
       {isLoading && <div>Loading exam questions...</div>}
       {error && <div>Error loading exam questions: {error.message}</div>}
       {!isLoading && !error && question && (
         <ExamContext.Provider value={{
+          exams,
           currentExam,
           setCurrentExam,
           question,
@@ -217,19 +264,17 @@ console.log("time sent to main:",timeAllocated);
           displayNavBar,
           table,
           socket,
-          setSocket,
           subject,
           className
         }}  >
           <Welcome />
-          <Main
+          {!progressQuery.isLoading && <Main
             regNo={regno}
             Exam={type}
             Subject={subject}
             userClass={className}
             time={parseInt(timeAllocated)}
-            state={state} 
-          />
+          />}
         </ExamContext.Provider>
       )}
     </div>

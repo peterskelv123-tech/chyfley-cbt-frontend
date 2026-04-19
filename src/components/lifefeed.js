@@ -1,65 +1,53 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-export const CameraComponent = () => {
+export const CameraComponent = ({ onCameraStreamCallback }) => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    const constraints = { video: true };
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    console.log("📷 Camera component mounted");
 
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        window.__mediaStream = stream;
+        console.log("🎥 Camera stream obtained");
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+
+        // ✅ CORRECT CALLBACK
+        onCameraStreamCallback?.(stream);
       } catch (err) {
-        console.error("Error accessing camera:", err);
+        console.error("❌ Failed to get camera stream", err);
       }
     };
 
     startCamera();
 
-    // ✅ stop camera function (used both on cleanup & externally)
-    const stopCamera = () => {
-  if (streamRef.current) {
-    streamRef.current.getTracks().forEach((track) => track.stop());
-    console.log("🎥 Camera tracks stopped");
-  }
-
-  if (videoRef.current) {
-    videoRef.current.srcObject = null; // ✅ IMPORTANT
-  }
-
-  streamRef.current = null;
-};
-
-
-    // ✅ make stop function globally accessible
-    window.__stopCamera = stopCamera;
-
-    // ✅ cleanup on unmount
     return () => {
-      stopCamera();
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject
+          .getTracks()
+          .forEach(track => track.stop());
+      }
     };
-  }, []);
+  }, [onCameraStreamCallback]);
 
   return (
-    <div className="mt-3">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        style={{
-          width: "70%",
-          maxWidth: "500px",
-          marginLeft: "4rem",
-          transform: "scaleX(-1)",
-          borderRadius: "10px",
-          border: "1px solid rgb(81, 194, 37)",
-        }}
-      />
-    </div>
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      playsInline
+      style={{ width: "100%", height: "100%", background: "black" }}
+    />
   );
 };

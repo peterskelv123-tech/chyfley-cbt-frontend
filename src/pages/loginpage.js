@@ -4,14 +4,15 @@ import { Top } from "../components/loginTop";
 import { Textinput } from "../components/inputelement";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/baseAxious";
-import { updateUser,changeExams } from "../action";
+import { updateUser, changeExams } from "../action";
 import { useDispatch } from "react-redux";
+import toast from "react-hot-toast";
 export const LoginPage = () => {
-  const navigation=useNavigate()
-  const dispatch=useDispatch()
+  const navigation = useNavigate()
+  const dispatch = useDispatch()
   const [loginDetail, setLoginDetails] = useState({
-    username: "",
-    password: "",
+    "full Name": "",
+    class: "",
   });
 
   const editLoginDetails = (part, value) => {
@@ -20,46 +21,49 @@ export const LoginPage = () => {
       [part]: value,
     }));
   };
-  const login = async() => {
-    if(Object.values(loginDetail).some((item) => item === "")){
-      alert("Please fill all fields");
+  const login = async () => {
+    if (Object.values(loginDetail).some((item) => item === "")) {
+      //alert("Please fill all fields");
+      toast.error("Please fill all fields", { duration: 4000 });
       return;
-    } 
-    if(loginDetail.password==="admin" && loginDetail.username==="admin"){
-    navigation("/dashboard",{replace:true} )
-    }else{
-      console.log("Making request to:", `/exams?className=${loginDetail.password}`);
-      try {
-    // 🔹 Call the API with className from password
-    const response = await api.get(`/exams/take`, {
-      params: { className: loginDetail.password,regNo:loginDetail.username },
-    });
-
-    if (response.data.statusCode === 200) {
-      const { data } = response.data; // depends on how your ResponseService wraps output
-      console.log("Fetched Exam Data:", response.data.data);
-      dispatch(updateUser(loginDetail.username))
-      dispatch(changeExams(data))
-      navigation("/exam",{replace:true} )
-      // 🧠 You can store exam data or navigate to the exam page
-      //localStorage.setItem("examData", JSON.stringify(data));
-
-      // Navigate to exam-taking page
-      //navigation("/take-exam", { state: { exams: data } });
-    } else {
-      alert(response.data.message || "Failed to fetch exam data. Try again."  );
     }
-  } catch (error) {
-    console.error("Login failed:", error);
-    const message =
-      error.response?.data?.message || "Failed to fetch exam data. Try again.";
-    alert(message);
-  }
+    if (loginDetail.class === "admin" && loginDetail["full Name"] === "admin") {
+      navigation("/dashboard", { replace: true })
+    } else {
+      console.log("Making request to:", `/exams?className=${loginDetail.class}`);
+      try {
+        // 🔹 Call the API with className from password
+        const response = await api.get(`/exams/take`, {
+          params: { className: loginDetail.class, regNo: loginDetail["full Name"] },
+        });
+        console.log("API Response:", response.data); // 🔍 Debug log for API response
+        if (response.data.statusCode === 200) {
+          const { data } = response.data; // depends on how your ResponseService wraps output
+          console.log("Fetched Exam Data:", response.data.data);
+          dispatch(updateUser(loginDetail["full Name"]))
+          if (data.length === 1) {
+            dispatch(changeExams(data))
+            navigation("/exam", { replace: true })
+          }
+          else {
+            dispatch(changeExams(data))
+            navigation("/exam-selection", { replace: true })
+          }
+        } else {
+          console.error("Login failed with status code:", response.data);
+          toast.error(response.data.message || "Failed to fetch exam data. Try again.", { duration: 4000 });
+        }
+      } catch (error) {
+        console.error("Login failed:", error);
+        const message =
+          error.response?.data?.message || "Failed to fetch exam data. Try again.";
+        toast.error(message, { duration: 4000 });
+      }
     }
   };
   const leftHalfStyle = {
     height: "100vh",
-    backgroundImage: `url(/img/BG2.jpeg)`,
+    backgroundImage: `url(/img/exam5.jpg)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     position: "relative",
@@ -88,7 +92,7 @@ export const LoginPage = () => {
                 key={item}
                 action={(e) => editLoginDetails(item, e.target.value)}
                 inputType={item !== "password" ? "text" : "password"}
-                placeholder={`Enter your ${item}`}
+                placeholder={item === "full Name" ? `Enter your ${item}` : `Enter your ${item} (without space)`}
                 variable={item.toUpperCase()}
                 value={loginDetail[item]}
               />

@@ -6,24 +6,31 @@ import { Bottom } from "./subbottom";
 import { Easynavigator } from "./Navtab";
 import { useContext, useMemo, useState, useRef, useEffect } from "react";
 import { useExamLifecycle } from "../customHookes/useExamLifeCycle";
+import { useMediasoupProducer } from "../customHookes/useMediaSoupProvider";
 import { ExamContext } from "../pages/examPage";
 import { useNavigate } from "react-router-dom";
 import { submitExamAnswers } from "../api/examSubmit";
 import { HARD_KILL_CAMERA } from "../constant";
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { changeExams } from "../action";
 export const Main = ({
   regNo,
   userClass,
   Exam,
   Subject,
   time,
-  state
 }) => {
   //const answer =answers.find((it) => it.questionId === question.id)?.answerChoosen ?? null;
   const navigate = useNavigate();
-  const [timeLeft, setTimeLeft] = useState(state==="minutes"?(time || 0) * 60:time);
+  const dispatch = useDispatch();
+  const [timeLeft, setTimeLeft] = useState(time);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+
   const {
+    exams,
+    setCurrentExam,
     question,
     examQuestions,
     answers,
@@ -34,14 +41,18 @@ export const Main = ({
     table,
     currentExam,
     socket,
-    setSocket,
     subject,
     className
   } = useContext(ExamContext);
-
+  const studentId = regNo;
+  const { onCameraStream } = useMediasoupProducer(socket, studentId);
+  useEffect(() => {
+    if (!socket || !currentExam) return;
+  }, [socket, currentExam]);  //const { startStreaming, stopStreaming } = useStudentMediaStream(socket, currentExam, regNo);
   // ----------------------------------------------
   // Timer calculation
   // ----------------------------------------------
+
   const { hr, min, sec } = useMemo(() => {
     const hr = Math.floor(timeLeft / 3600);
     const min = Math.floor((timeLeft % 3600) / 60);
@@ -60,7 +71,11 @@ export const Main = ({
   // ----------------------------------------------
   // Current question index & answer
   // ----------------------------------------------
-  const number = examQuestions.findIndex((q) => q.id === question.id);
+  const number = useMemo(() => {
+    if (!examQuestions || !question) return 0;
+    const idx = examQuestions.findIndex(q => q.id === question.id);
+    return idx === -1 ? 0 : idx;
+  }, [examQuestions, question]);
   const answer = useMemo(() => {
     return answersRef.current.find(it => it.questionId === question.id)?.answerText ?? null;
   }, [question.id]);
@@ -75,48 +90,44 @@ export const Main = ({
     if (submitLock.current) return;
     submitLock.current = true;
 
+    const examBeingSubmitted = currentExam;
+
     try {
-      console.log("Submitting because:", reason);
       setIsSubmitted(true);
 
-      // Use answersRef.current to get latest answers
-      await submitExamAnswers(regNo, currentExam, answersRef.current);
+      const result = await submitExamAnswers(regNo, examBeingSubmitted, answersRef.current);
+      console.log("Exam submission result:", result.data.score);
+      toast.success("Exam submitted successfully you got " + result.data.score + " marks", {
+        duration: 5000,
+      });
+      const remainingExams = exams.filter(e => e.id !== examBeingSubmitted);
+      dispatch(changeExams(remainingExams));
+      socket?.emit("student-leave", {
+        studentId: regNo,
+        examId: examBeingSubmitted,
+        timeLeft,
+      });
+      if (remainingExams.length === 0) {
 
-      let ackReceived = false;
+        HARD_KILL_CAMERA();
 
-      // Notify server and leave
-      socket.emit(
-        "student-leave",
-        { studentId: regNo, examId: currentExam,timeLeft: timeLeft },
-        (ack) => {
-          console.log("LEAVE ACK:", ack);
-          ackReceived = true;
-          try {
-            socket.close();
-            setSocket(null);
-            HARD_KILL_CAMERA();
-          } catch { }
+        navigate("/", { replace: true });
+        return;
+      }
 
-          setTimeout(() => navigate("/"), 120);
-        }
-      );
-
-      // Fallback if server doesn't ack within 600ms
-      setTimeout(() => {
-        if (!ackReceived) {
-          console.warn("No ack, fallback disconnect");
-          try { socket.close(); } catch { }
-          setTimeout(() => navigate("/", { replace: true }), 150);
-        }
-      }, 600);
+      setCurrentExam(remainingExams[0].id);
 
     } catch (err) {
-      submitLock.current = false;
-      console.error(err);
-      alert(err.message || "Error submitting exam");
+      toast.error(err.message || "Error submitting exam");
       setIsPaused(true);
+    } finally {
+      submitLock.current = false;
     }
   };
+
+
+
+
 
   // assign handleSubmit to ref
   handleSubmitRef.current = handleSubmit;
@@ -141,6 +152,12 @@ export const Main = ({
   //----------------------------------------------
   // FINAL SUBMIT HANDLER
   //----------------------------------------------
+  // ADD THIS NEAR TOP OF Main COMPONENT
+
+  if ((!currentExam || isSubmitted) && exams.length === 0) {
+    return null;
+  }
+
   return (
     <div className="container-fluid">
       <div className="row">
@@ -230,6 +247,7 @@ export const Main = ({
                     no={number}
                     save={(option) => answerQuestion(option)}
                     answer={answersRef.current.find(it => it.questionId === question.id)?.answerText ?? null}
+                    changeQuestion={changeQuestion}
                   />
                   <Easynavigator
                     num={number}
@@ -251,7 +269,9 @@ export const Main = ({
                 <div className="col-md-4 d-flex flex-column align-items-center justify-content-start">
                   {/* Camera at the top */}
                   <div className="mt-3 mb-2">
-                    {!isSubmitted && <CameraComponent />}
+                    <div style={{ display: isSubmitted ? "none" : "block" }}>
+                      <CameraComponent onCameraStreamCallback={onCameraStream} />
+                    </div>
                   </div>
 
                   {/* Spacer pushes the button down */}
