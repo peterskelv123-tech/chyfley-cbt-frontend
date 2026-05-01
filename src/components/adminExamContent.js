@@ -9,6 +9,8 @@ import { api, backend_mapping_of_filter } from "../api/baseAxious";
 import { AdminContext } from "../pages/adminPage";
 import { DeleteWarningModal } from "./deleteModal";
 import SmartInputDropdown from "./smart_input_dropdown";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 export const AdminExamPageContent = () => {
     const [modalState, setModalState] = useState({ visibility: false, topic: "" });
     const {
@@ -29,16 +31,8 @@ export const AdminExamPageContent = () => {
         allSessions,
         allTerms
     } = useContext(AdminContext);
+    const navigation = useNavigate()
     const [searchInput, setSearchInput] = useState(pageInfo.searchKey ?? "");
-    /*useEffect(() => {
-        if (!sessionError && !termsError && !examTypesError) {
-            console.log("Fetched exam detail filters:", {
-                sessions: allSessions,
-                terms: allTerms,
-                examTypes: allExamTypes
-            });
-        }
-    }, [sessionError, termsError, examTypesError, allSessions, allTerms, allExamTypes]);*/
     const [isPending, startTransition] = useTransition();
     useEffect(() => {
         setSearchInput(pageInfo.searchKey ?? "");
@@ -109,7 +103,7 @@ export const AdminExamPageContent = () => {
     const [selectedExam, setSelectedExam] = useState(null)
     const changeModalState = (topic, visibility) => {
         if (topic !== "" && !MODALTITLES.includes(topic)) {
-            alert("Invalid modal topic");
+            toast.error("Invalid modal topic");
             return;
         }
 
@@ -150,7 +144,7 @@ export const AdminExamPageContent = () => {
             // rollback on failure
             queryClient.setQueryData(queryKey, previousData);
             console.error("Failed to toggle status:", err);
-            alert("Failed to toggle status");
+            toast.error("Failed to toggle status");
         }
     };
 
@@ -163,7 +157,7 @@ export const AdminExamPageContent = () => {
                     params: { examId: selectedExam }
                 });
 
-                alert(response.data.message ?? "exam deleted successfully")
+                toast.success(response.data.message ?? "exam deleted successfully")
                 if (response.data.statusCode === 200) {
                     queryClient.setQueryData(queryKey, (old) => ({
                         ...old,
@@ -173,14 +167,22 @@ export const AdminExamPageContent = () => {
                 exams.paginated === false ? all() : current(); // ✅ Refetch fresh server data
                 setSelectedExam(null)
             } catch (err) {
-                alert("Failed to delete exam");
+                toast.error("Failed to delete exam");
             }
         } else {
-            alert(" you need to select an exam to delete")
+            toast.error(" you need to select an exam to delete")
         }
     };
     const rowActions = {
         "Toggle Status": (rowIndex) => toggleStatus(rowIndex),
+        "View Questions": (rowIndex) => {
+            // const exam = exams.data.find(e => e.id === rowIndex);
+            // this should go to the exam details page with the questions and other details about the exam, for now it just alerts the exam id
+            const examDetail = viewableTableDetails.find((exam) => exam.id === rowIndex)
+            //console.log('u clicked on exam detail:', examDetail)
+            navigation(`/exam-editor/${rowIndex}/${examDetail['class']}/${examDetail['subject']}`)
+            //alert(`Navigate to exam details for exam ID: ${rowIndex}`);
+        },
         "Delete": (rowIndex) => {
             setSelectedExam(rowIndex)
             changeModalState(MODALTITLES[1], true)
@@ -190,7 +192,7 @@ export const AdminExamPageContent = () => {
     // ✅ Form submit (server + invalidate)
     const onSubmit = async (data) => {
         try {
-            await handlePostForm(data);
+            await handlePostForm(data, "/exams");
             console.log("Submitted data:", data);
             reset();
             changeModalState("", false);
@@ -201,7 +203,7 @@ export const AdminExamPageContent = () => {
             all(); // ✅ refetch new list
         } catch (error) {
             console.error("Error submitting exam:", error);
-            alert(error.response?.data?.message || "An error occurred");
+            toast.error(error.response?.data?.message || "Failed to create exam");
         }
     };
     const isAllloading = examTypesLoading || termsLoading || sessionsLoading;

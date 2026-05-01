@@ -24,6 +24,18 @@ export const fetchExamDetailFilters = async (filterKey) => {
     throw error;
   }
 }
+export const reviewQuestion = async (examId) => {
+  //console.log("fetching questions for:", examId)
+  try {
+    const response = await api.get(`/questions/question-review`, { params: { examId } });
+    //console.log("Received question review data:", response.data);
+    return response.data ?? [];
+  }
+  catch (e) {
+    console.error("❌ Error reviewing questions:", e);
+    throw e;
+  }
+}
 export const fetchExamQuestions = async (examId, studentId) => {
   if (!examId) throw new Error("No examId provided");
   console.log("get exam questions for:", studentId);
